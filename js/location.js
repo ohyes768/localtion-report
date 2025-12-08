@@ -9,7 +9,7 @@ class LocationManager {
         this.minPositionInterval = 5000; // 最小定位间隔5秒
     }
 
-    // 获取当前位置
+    // 获取当前位置（带重试机制）
     getCurrentPosition(options = {}) {
         return new Promise((resolve, reject) => {
             if (!navigator.geolocation) {
@@ -26,16 +26,32 @@ class LocationManager {
                 return;
             }
 
+            // 渐进式定位策略
+            this._attemptLocation(options, 1)
+                .then(resolve)
+                .catch(reject);
+        });
+    }
+
+    // 渐进式定位尝试
+    async _attemptLocation(options, attempt) {
+        const maxAttempts = 3;
+        const timeouts = [10000, 20000, 30000]; // 渐进式超时：10s, 20s, 30s
+
+        return new Promise((resolve, reject) => {
+            // 设置不同精度要求
+            const enableHighAccuracy = attempt === 1 ? false : (attempt < 3 ? true : false);
+
             const defaultOptions = {
-                enableHighAccuracy: true,
-                timeout: APP_CONFIG.locationTimeout,
-                maximumAge: options.force ? 0 : 10000 // 强制定位时不使用缓存
+                enableHighAccuracy: enableHighAccuracy,
+                timeout: Math.min(timeouts[attempt - 1], APP_CONFIG.locationTimeout),
+                maximumAge: options.force ? 0 : (attempt === 1 ? 60000 : 30000) // 首次允许1分钟缓存
             };
 
             const finalOptions = { ...defaultOptions, ...options };
 
             if (APP_CONFIG.debug) {
-                console.log('开始定位，选项:', finalOptions);
+                console.log(`定位尝试 ${attempt}/${maxAttempts}，选项:`, finalOptions);
             }
 
             const startTime = Date.now();
@@ -46,29 +62,67 @@ class LocationManager {
                     const location = this._processPosition(position);
 
                     this.currentPosition = location;
-                    this.lastPositionTime = now;
+                    this.lastPositionTime = Date.now();
 
                     // 缓存位置信息
                     Utils.storage.set('last_position', location, CACHE_CONFIG.locationCacheTime);
 
                     if (APP_CONFIG.debug) {
-                        console.log('定位成功:', location, `耗时: ${duration}ms`);
+                        console.log(`定位成功 (尝试 ${attempt}):`, location, `耗时: ${duration}ms`);
                     }
 
                     this.notifyCallbacks(location);
                     resolve(location);
                 },
-                (error) => {
+                async (error) => {
                     const duration = Date.now() - startTime;
                     const errorMessage = this._handleGeolocationError(error);
 
+                    if (APP_CONFIG.debug) {
+                        console.warn(`定位失败 (尝试 ${attempt}):`, error, `耗时: ${duration}ms`);
+                    }
+
                     Utils.logError(error, {
-                        type: 'geolocation',
+                        type: 'geolocation_attempt',
+                        attempt: attempt,
                         duration: duration,
                         options: finalOptions
                     });
 
-                    reject(new Error(errorMessage));
+                    // 如果还有重试机会，尝试重试
+                    if (attempt < maxAttempts) {
+                        // 检查是否是权限错误，权限错误不重试
+                        if (error.code === error.PERMISSION_DENIED) {
+                            reject(new Error(errorMessage));
+                            return;
+                        }
+
+                        if (APP_CONFIG.debug) {
+                            console.log(`2秒后进行第 ${attempt + 1} 次定位尝试...`);
+                        }
+
+                        // 等待2秒后重试
+                        setTimeout(async () => {
+                            try {
+                                const result = await this._attemptLocation(options, attempt + 1);
+                                resolve(result);
+                            } catch (retryError) {
+                                reject(retryError);
+                            }
+                        }, 2000);
+                    } else {
+                        // 所有尝试都失败
+                        // 尝试使用缓存位置
+                        const cachedPosition = this._getCachedPosition();
+                        if (cachedPosition && !options.force) {
+                            if (APP_CONFIG.debug) {
+                                console.log('使用缓存位置作为备用方案');
+                            }
+                            resolve(cachedPosition);
+                        } else {
+                            reject(new Error(this._getEnhancedErrorMessage(error, attempt)));
+                        }
+                    }
                 },
                 finalOptions
             );
@@ -297,6 +351,44 @@ class LocationManager {
 
         // 从本地存储读取
         return Utils.storage.get('last_position');
+    }
+
+    // 获取有效的缓存位置（用于备用方案）
+    _getCachedPosition() {
+        // 先检查当前内存中的位置
+        if (this.currentPosition && !this.isPositionStale(this.currentPosition.timestamp, 300000)) {
+            return this.currentPosition;
+        }
+
+        // 再检查本地存储中的位置（5分钟内有效）
+        const cached = Utils.storage.get('last_position');
+        if (cached && !this.isPositionStale(cached.timestamp, 300000)) {
+            return cached;
+        }
+
+        return null;
+    }
+
+    // 获取增强的错误信息
+    _getEnhancedErrorMessage(error, attempt) {
+        const baseMessage = this._handleGeolocationError(error);
+
+        // 根据尝试次数和错误类型提供更详细的错误信息
+        let enhancedMessage = baseMessage;
+
+        if (attempt >= 3) {
+            enhancedMessage += '\n\n已尝试3次定位仍失败，建议：';
+            enhancedMessage += '\n1. 确保设备已开启定位服务';
+            enhancedMessage += '\n2. 移动到开阔区域或靠近窗户';
+            enhancedMessage += '\n3. 检查浏览器是否允许获取位置';
+            enhancedMessage += '\n4. 尝试刷新页面重新定位';
+
+            if (error.code === error.TIMEOUT) {
+                enhancedMessage += '\n5. 当前网络环境可能较差，建议稍后重试';
+            }
+        }
+
+        return enhancedMessage;
     }
 
     // 检查位置是否过时
