@@ -1,0 +1,506 @@
+/* 全局样式重置 */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+/* 基础样式 */
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    font-size: 16px;
+    line-height: 1.5;
+    background-color: #f5f5f5;
+    height: 100vh;
+    overflow: hidden;
+    color: #333;
+}
+
+/* 页面容器 */
+.page {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    transition: all 0.3s ease;
+    opacity: 0;
+    visibility: hidden;
+}
+
+.page.active {
+    opacity: 1;
+    visibility: visible;
+}
+
+/* 加载页面样式 */
+#loading-page {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    justify-content: center;
+    align-items: center;
+}
+
+.loading-content {
+    text-align: center;
+    padding: 20px;
+}
+
+.car-info {
+    margin-bottom: 40px;
+}
+
+.car-info h2 {
+    font-size: 28px;
+    margin-bottom: 10px;
+    font-weight: 600;
+}
+
+.car-info p {
+    font-size: 20px;
+    opacity: 0.9;
+}
+
+.loading-animation {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.spinner {
+    width: 50px;
+    height: 50px;
+    border: 4px solid rgba(255, 255, 255, 0.3);
+    border-top: 4px solid white;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin-bottom: 20px;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+/* 地图页面样式 */
+#map-page {
+    background: #fff;
+}
+
+.map-header {
+    background: #fff;
+    padding: 15px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    z-index: 100;
+}
+
+.map-header h2 {
+    font-size: 20px;
+    margin-bottom: 5px;
+}
+
+.map-header p {
+    font-size: 14px;
+    color: #666;
+}
+
+.location-analysis {
+    margin-top: 8px;
+    font-size: 13px;
+    color: #007AFF;
+    background: rgba(0, 122, 255, 0.1);
+    padding: 6px 12px;
+    border-radius: 4px;
+    display: inline-block;
+}
+
+#map-container {
+    flex: 1;
+    width: 100%;
+    min-height: 300px;
+}
+
+.action-buttons {
+    display: flex;
+    padding: 15px;
+    gap: 10px;
+    background: #fff;
+    box-shadow: 0 -2px 4px rgba(0,0,0,0.1);
+}
+
+/* 按钮样式 */
+.btn {
+    flex: 1;
+    padding: 12px 20px;
+    border: none;
+    border-radius: 8px;
+    font-size: 16px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.3s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    background-color: #f8f9fa;
+    color: #333;
+    position: relative;
+    overflow: hidden;
+}
+
+.btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.btn.primary {
+    background-color: #007AFF;
+    color: white;
+}
+
+.btn.primary:hover {
+    background-color: #0056D6;
+}
+
+.btn.small {
+    padding: 8px 16px;
+    font-size: 14px;
+}
+
+.btn .icon.loading {
+    animation: spin 1s linear infinite;
+}
+
+/* 分享页面样式 */
+#share-page {
+    background: #f5f5f5;
+    overflow-y: auto;
+}
+
+.share-content {
+    padding: 20px;
+}
+
+.share-content h2 {
+    text-align: center;
+    margin-bottom: 20px;
+}
+
+.screenshot-container {
+    position: relative;
+    margin-bottom: 20px;
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+}
+
+#screenshot-image {
+    width: 100%;
+    display: block;
+}
+
+.screenshot-overlay {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+}
+
+.share-text {
+    background: white;
+    padding: 15px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+}
+
+.share-text p {
+    margin-bottom: 8px;
+}
+
+.share-text p:last-child {
+    margin-bottom: 0;
+}
+
+.share-guide {
+    background: #f0f0f0;
+    padding: 15px;
+    border-radius: 8px;
+    margin-top: 20px;
+}
+
+.share-guide h3 {
+    margin-bottom: 10px;
+    font-size: 16px;
+}
+
+.share-guide ol {
+    padding-left: 20px;
+}
+
+.share-guide li {
+    margin-bottom: 8px;
+}
+
+/* 模态框样式 */
+.modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+    opacity: 0;
+    visibility: hidden;
+    transition: all 0.3s;
+}
+
+.modal.active {
+    opacity: 1;
+    visibility: visible;
+}
+
+.modal-content {
+    background: white;
+    padding: 20px;
+    border-radius: 8px;
+    margin: 20px;
+    max-width: 300px;
+    width: 100%;
+    text-align: center;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+}
+
+.modal-content h3 {
+    margin-bottom: 15px;
+}
+
+.modal-content p {
+    margin-bottom: 20px;
+    color: #666;
+    white-space: pre-line;
+}
+
+/* Toast提示样式 */
+.toast {
+    position: fixed;
+    bottom: 30px;
+    left: 50%;
+    transform: translateX(-50%) translateY(100px);
+    background: rgba(0, 0, 0, 0.8);
+    color: white;
+    padding: 12px 20px;
+    border-radius: 20px;
+    font-size: 14px;
+    z-index: 2000;
+    opacity: 0;
+    transition: all 0.3s ease;
+    max-width: 80%;
+    text-align: center;
+}
+
+.toast.show {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+}
+
+/* 地图标记样式 */
+.custom-marker {
+    position: relative;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    border: 3px solid white;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 20px;
+    transform: translate(-50%, -100%);
+}
+
+.custom-marker .marker-label {
+    position: absolute;
+    bottom: -25px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(0,0,0,0.7);
+    color: white;
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-size: 12px;
+    white-space: nowrap;
+}
+
+.info-window {
+    padding: 10px;
+    min-width: 200px;
+}
+
+.info-window h3 {
+    margin: 0 0 10px 0;
+    font-size: 16px;
+}
+
+.info-window p {
+    margin: 5px 0;
+    font-size: 14px;
+    color: #666;
+}
+
+/* 响应式设计 */
+@media (max-width: 480px) {
+    body {
+        font-size: 14px;
+    }
+
+    .car-info h2 {
+        font-size: 24px;
+    }
+
+    .car-info p {
+        font-size: 18px;
+    }
+
+    .btn {
+        padding: 16px;
+        font-size: 18px;
+    }
+
+    .action-buttons {
+        flex-direction: column;
+        gap: 10px;
+    }
+
+    .share-content {
+        padding: 15px;
+    }
+
+    .modal-content {
+        margin: 15px;
+        padding: 15px;
+    }
+}
+
+/* iOS安全区域适配 */
+@supports (padding: max(0px)) {
+    .action-buttons {
+        padding-bottom: max(15px, env(safe-area-inset-bottom));
+    }
+
+    .share-content {
+        padding-bottom: max(20px, env(safe-area-inset-bottom));
+    }
+}
+
+/* 深色模式支持 */
+@media (prefers-color-scheme: dark) {
+    body {
+        background-color: #1c1c1e;
+        color: #ffffff;
+    }
+
+    #map-page {
+        background: #1c1c1e;
+    }
+
+    .map-header {
+        background: #2c2c2e;
+        color: #ffffff;
+    }
+
+    .map-header p {
+        color: #98989d;
+    }
+
+    .action-buttons {
+        background: #2c2c2e;
+    }
+
+    .btn {
+        background-color: #3a3a3c;
+        color: #ffffff;
+    }
+
+    .btn.primary {
+        background-color: #007AFF;
+        color: white;
+    }
+
+    #share-page {
+        background: #1c1c1e;
+    }
+
+    .share-text {
+        background: #2c2c2e;
+        color: #ffffff;
+    }
+
+    .share-guide {
+        background: #3a3a3c;
+        color: #ffffff;
+    }
+
+    .modal-content {
+        background: #2c2c2e;
+        color: #ffffff;
+    }
+
+    .modal-content p {
+        color: #98989d;
+    }
+}
+
+/* 动画效果 */
+.btn:active {
+    transform: scale(0.98);
+}
+
+.btn:focus {
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(0, 122, 255, 0.3);
+}
+
+.btn.primary:focus {
+    box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.5);
+}
+
+/* 加载状态 */
+.loading-text {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.loading-dot {
+    width: 4px;
+    height: 4px;
+    border-radius: 50%;
+    background-color: currentColor;
+    animation: loadingDot 1.4s infinite ease-in-out both;
+}
+
+.loading-dot:nth-child(1) {
+    animation-delay: -0.32s;
+}
+
+.loading-dot:nth-child(2) {
+    animation-delay: -0.16s;
+}
+
+@keyframes loadingDot {
+    0%, 80%, 100% {
+        transform: scale(0);
+        opacity: 0.5;
+    }
+    40% {
+        transform: scale(1);
+        opacity: 1;
+    }
+}

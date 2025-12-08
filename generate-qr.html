@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>生成测试二维码</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        .qrcode { margin: 20px 0; text-align: center; }
+        .qrcode canvas { margin: 10px; }
+    </style>
+</head>
+<body>
+    <h1>车辆位置测试二维码</h1>
+    <div id="qrcodes"></div>
+
+    <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+    <script>
+        const baseUrl = 'http://10.11.45.39:8080';
+        const vehicles = [
+            { id: 'car001', name: '雷克萨斯LS200' },
+            { id: 'car002', name: '零跑T03' },
+            { id: 'car003', name: '奥迪Q5' },
+            { id: 'car004', name: '小米SU7' }
+        ];
+
+        const container = document.getElementById('qrcodes');
+
+        vehicles.forEach(vehicle => {
+            const url = `${baseUrl}/?car=${vehicle.id}`;
+            const div = document.createElement('div');
+            div.className = 'qrcode';
+            div.innerHTML = `<h3>${vehicle.name}</h3><p>${url}</p>`;
+            container.appendChild(div);
+
+            new QRCode(div, {
+                text: url,
+                width: 200,
+                height: 200
+            });
+        });
+    </script>
+</body>
+</html>

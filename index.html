@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="format-detection" content="telephone=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <title>车辆位置查询</title>
+    <link rel="stylesheet" href="css/style.css">
+    <script src="https://map.qq.com/api/gljs?v=1.exp&key=67PBZ-AWOWQ-TTW5A-BTI3M-BNMHH-2YBXZ"></script>
+</head>
+<body>
+    <!-- 加载页面 -->
+    <div id="loading-page" class="page active">
+        <div class="loading-content">
+            <div class="car-info">
+                <h2 id="car-name">车辆A</h2>
+                <p id="car-plate">京A12345</p>
+            </div>
+            <div class="loading-animation">
+                <div class="spinner"></div>
+                <p>正在获取位置信息并分析...</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- 地图展示页面 -->
+    <div id="map-page" class="page">
+        <div class="map-header">
+            <h2 id="location-title">车辆位置</h2>
+            <p id="location-address">地址加载中...</p>
+            <div id="location-analysis" class="location-analysis" style="display: none;"></div>
+        </div>
+        <div id="map-container"></div>
+        <div class="action-buttons">
+            <button id="refresh-btn" class="btn">
+                <span class="icon">🔄</span> 刷新位置
+            </button>
+            <button id="share-btn" class="btn primary">
+                <span class="icon">📤</span> 分享位置
+            </button>
+        </div>
+    </div>
+
+    <!-- 分享指引页面 -->
+    <div id="share-page" class="page">
+        <div class="share-content">
+            <h2>分享车辆位置</h2>
+            <div class="screenshot-container">
+                <img id="screenshot-image" src="" alt="位置截图">
+                <div class="screenshot-overlay">
+                    <button id="save-image-btn" class="btn small">保存图片</button>
+                </div>
+            </div>
+            <div class="share-text">
+                <p>📍 <span id="share-address">具体地址</span></p>
+                <p>🕒 <span id="share-time">更新时间</span></p>
+                <p>🚗 <span id="share-car">车辆信息</span></p>
+                <div id="share-analysis" style="display: none;"></div>
+            </div>
+            <button id="copy-btn" class="btn">
+                <span class="icon">📋</span> 复制位置信息
+            </button>
+            <div class="share-guide">
+                <h3>分享到微信群：</h3>
+                <ol>
+                    <li>长按上方图片保存到相册</li>
+                    <li>打开微信群，选择相册中的图片发送</li>
+                    <li>粘贴复制好的位置信息</li>
+                </ol>
+            </div>
+        </div>
+    </div>
+
+    <!-- 错误提示 -->
+    <div id="error-modal" class="modal">
+        <div class="modal-content">
+            <h3 id="error-title">提示</h3>
+            <p id="error-message">错误信息</p>
+            <button id="error-ok-btn" class="btn">确定</button>
+        </div>
+    </div>
+
+    <!-- Toast提示 -->
+    <div id="toast" class="toast"></div>
+
+    <!-- 加载脚本 -->
+    <script src="js/config.js"></script>
+    <script src="js/utils.js"></script>
+    <script src="js/location.js"></script>
+    <script src="js/map.js"></script>
+    <script src="js/app.js"></script>
+</body>
+</html>
