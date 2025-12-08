@@ -143,6 +143,7 @@ class MapManager {
     createSimpleMarker(location, carInfo) {
         try {
             console.log('创建DOMOverlay标记...', carInfo);
+            console.log('位置信息:', location);
 
             // 使用DOMOverlay作为主要方案
             const div = document.createElement('div');
@@ -181,14 +182,27 @@ class MapManager {
             };
 
             if (typeof TMap.DOMOverlay === 'function') {
+                console.log('TMap.DOMOverlay可用，创建标记...');
                 const marker = new TMap.DOMOverlay({
                     map: this.map,
                     position: new TMap.LatLng(location.lat, location.lng),
-                    content: div
+                    content: div,
+                    zIndex: 1000
                 });
 
                 this.marker = marker;
-                console.log('DOMOverlay标记创建成功');
+                console.log('DOMOverlay标记创建成功:', marker);
+
+                // 确保标记可见
+                setTimeout(() => {
+                    console.log('检查标记是否可见...');
+                    if (marker.dom && marker.dom.parentNode) {
+                        console.log('标记DOM已添加到页面');
+                    } else {
+                        console.warn('标记DOM可能未正确显示');
+                    }
+                }, 1000);
+
             } else {
                 console.log('TMap.DOMOverlay不可用，使用备用方案');
                 // 最后的备用方案：直接在地图中心显示信息
@@ -198,6 +212,7 @@ class MapManager {
 
         } catch (error) {
             console.error('DOMOverlay标记创建失败:', error);
+            console.error('错误详情:', error.stack);
             // 最后的备用方案
             this.setCenter(location);
             this.showCenterInfo(carInfo, location);
