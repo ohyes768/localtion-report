@@ -9,9 +9,18 @@ class LocationManager {
         this.lastPositionTime = 0;
         this.minPositionInterval = 5000; // 最小定位间隔5秒
         this.useTencentLocation = false; // 是否使用腾讯定位组件
+
+        // 浏览器检测
+        this.browserDetection = window.browserDetection || null;
+        this.locationStrategy = this.browserDetection ? this.browserDetection.locationStrategy : {
+            enableHighAccuracy: true,
+            timeout: 20000,
+            maximumAge: 0,
+            retries: 2
+        };
     }
 
-    // 获取当前位置（集成腾讯定位组件）
+    // 获取当前位置（集成腾讯定位组件和浏览器检测）
     getCurrentPosition(options = {}) {
         return new Promise((resolve, reject) => {
             // 检查定位频率限制
@@ -23,23 +32,52 @@ class LocationManager {
                 return;
             }
 
-            // 优先使用腾讯定位组件
-            if (this.useTencentLocation && this._initTencentGeolocation()) {
-                this._attemptTencentLocation(options)
+            // 根据浏览器检测选择定位策略
+            const browserOptimizedOptions = this._getBrowserOptimizedOptions(options);
+
+            // 检查是否需要使用腾讯定位（特别是小米浏览器）
+            if (this._shouldUseTencentLocation() && this._initTencentGeolocation()) {
+                console.log(`🎯 使用浏览器优化策略: ${this.locationStrategy.name}`);
+                this._attemptTencentLocation(browserOptimizedOptions)
                     .then(resolve)
                     .catch(error => {
                         console.warn('腾讯定位失败，回退到浏览器定位:', error.message);
-                        this._attemptBrowserLocation(options, 1)
+                        this._attemptBrowserLocationWithStrategy(browserOptimizedOptions, 1)
                             .then(resolve)
                             .catch(reject);
                     });
             } else {
-                // 使用浏览器原生定位
-                this._attemptBrowserLocation(options, 1)
+                console.log(`🎯 使用浏览器定位策略: ${this.locationStrategy.name}`);
+                // 使用浏览器原生定位（带优化参数）
+                this._attemptBrowserLocationWithStrategy(browserOptimizedOptions, 1)
                     .then(resolve)
                     .catch(reject);
             }
         });
+    }
+
+    // 根据浏览器获取优化选项
+    _getBrowserOptimizedOptions(options) {
+        const strategy = this.locationStrategy;
+
+        return {
+            ...strategy,
+            ...options,  // 用户传入的选项优先
+            enableHighAccuracy: options.enableHighAccuracy || strategy.enableHighAccuracy,
+            timeout: options.timeout || strategy.timeout,
+            maximumAge: options.maximumAge || strategy.maximumAge
+        };
+    }
+
+    // 检查是否应该使用腾讯定位
+    _shouldUseTencentLocation() {
+        // 小米浏览器强烈建议使用腾讯定位补充
+        if (this.browserDetection && this.browserDetection.shouldUseTencentLocation()) {
+            return true;
+        }
+
+        // 其他情况下使用用户配置
+        return this.useTencentLocation;
     }
 
     // 初始化腾讯定位组件
@@ -140,9 +178,119 @@ class LocationManager {
         return location;
     }
 
-    // 浏览器原生定位（重命名原方法）
-    _attemptBrowserLocation(options, attempt) {
-        return this._attemptLocation(options, attempt);
+    // 浏览器原生定位（带浏览器优化策略）
+    _attemptBrowserLocationWithStrategy(options, attempt) {
+        const maxRetries = options.retries || this.locationStrategy.retries;
+
+        return new Promise((resolve, reject) => {
+            // 根据浏览器调整定位精度要求
+            const enableHighAccuracy = this._adjustAccuracyForBrowser(options.enableHighAccuracy, attempt);
+
+            const finalOptions = {
+                enableHighAccuracy: enableHighAccuracy,
+                timeout: options.timeout,
+                maximumAge: options.maximumAge
+            };
+
+            if (APP_CONFIG.debug) {
+                console.log(`浏览器定位尝试 ${attempt}/${maxRetries}，浏览器: ${this.locationStrategy.name}，选项:`, finalOptions);
+            }
+
+            const startTime = Date.now();
+
+            navigator.geolocation.getCurrentPosition(
+                (position) => {
+                    const duration = Date.now() - startTime;
+                    const location = this._processPosition(position);
+                    location.browserStrategy = this.locationStrategy.name;
+                    location.browserOptimized = true;
+
+                    this.currentPosition = location;
+                    this.lastPositionTime = Date.now();
+
+                    // 缓存位置信息
+                    Utils.storage.set('last_position', location, CACHE_CONFIG.locationCacheTime);
+
+                    if (APP_CONFIG.debug) {
+                        console.log(`✅ 浏览器定位成功 (${this.locationStrategy.name}):`, location, `耗时: ${duration}ms`);
+                    }
+
+                    this.notifyCallbacks(location);
+                    resolve(location);
+                },
+                async (error) => {
+                    const duration = Date.now() - startTime;
+                    const errorMessage = this._handleGeolocationError(error);
+
+                    if (APP_CONFIG.debug) {
+                        console.warn(`❌ 浏览器定位失败 (${this.locationStrategy.name}):`, error, `耗时: ${duration}ms`);
+                    }
+
+                    // 如果还有重试机会，尝试重试
+                    if (attempt < maxRetries) {
+                        // 检查是否是权限错误，权限错误不重试
+                        if (error.code === error.PERMISSION_DENIED) {
+                            reject(new Error(errorMessage));
+                            return;
+                        }
+
+                        // 根据浏览器调整重试间隔
+                        const retryDelay = this._getRetryDelayForBrowser(attempt);
+
+                        if (APP_CONFIG.debug) {
+                            console.log(`${retryDelay}ms后进行第 ${attempt + 1} 次定位尝试 (${this.locationStrategy.name})...`);
+                        }
+
+                        setTimeout(async () => {
+                            try {
+                                const result = await this._attemptBrowserLocationWithStrategy(options, attempt + 1);
+                                resolve(result);
+                            } catch (retryError) {
+                                reject(retryError);
+                            }
+                        }, retryDelay);
+                    } else {
+                        // 所有尝试都失败，尝试使用腾讯定位作为备用
+                        if (this._shouldUseTencentLocation() && this._initTencentGeolocation()) {
+                            console.log(`🔄 浏览器定位失败，尝试腾讯定位备用方案...`);
+                            try {
+                                const tencentResult = await this._attemptTencentLocation(options);
+                                tencentResult.browserStrategy = `${this.locationStrategy.name} + 腾讯备用`;
+                                resolve(tencentResult);
+                            } catch (tencentError) {
+                                reject(new Error(`${errorMessage} (腾讯备用也失败: ${tencentError.message})`));
+                            }
+                        } else {
+                            reject(new Error(this._getEnhancedErrorMessage(error, attempt)));
+                        }
+                    }
+                },
+                finalOptions
+            );
+        });
+    }
+
+    // 根据浏览器调整定位精度
+    _adjustAccuracyForBrowser(enableHighAccuracy, attempt) {
+        // 小米浏览器在多次尝试时降低精度要求
+        if (this.browserDetection && this.browserDetection.browserInfo.isMiuiBrowser) {
+            if (attempt > 1) {
+                console.log(`小米浏览器第${attempt}次尝试，降低精度要求`);
+                return false; // 降低精度要求提高成功率
+            }
+        }
+
+        return enableHighAccuracy;
+    }
+
+    // 根据浏览器获取重试间隔
+    _getRetryDelayForBrowser(attempt) {
+        if (this.browserDetection && this.browserDetection.browserInfo.isMiuiBrowser) {
+            // 小米浏览器需要更长的重试间隔
+            return attempt * 3000; // 3s, 6s, 9s
+        }
+
+        return 2000 * attempt; // 2s, 4s, 6s
     }
 
     // 启用腾讯定位组件
