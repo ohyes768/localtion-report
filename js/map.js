@@ -116,37 +116,13 @@ class MapManager {
                 this.marker.setMap(null);
             }
 
-            // 创建车辆标识标记
-            this.marker = new TMap.Marker({
-                map: this.map,
-                position: new TMap.LatLng(location.lat, location.lng),
-                styles: {
-                    'carMarker': new TMap.MarkerStyle({
-                        width: 35,
-                        height: 35,
-                        anchor: { x: 17, y: 35 },
-                        src: this.createMarkerIcon(carInfo),
-                        color: carInfo.color
-                    })
-                },
-                styleId: 'carMarker',
-                zIndex: 1000
-            });
-
-            // 尝试添加点击事件
-            if (typeof this.marker.on === 'function') {
-                this.marker.on('click', () => {
-                    this.showInfoWindow(carInfo, location);
-                });
-            }
-
-            // 设置地图中心到车辆位置
-            this.setCenter(location);
+            // 由于TMap.Marker在GL版本中不可用，直接使用备用方法
+            console.log('使用DOMOverlay创建标记...');
+            this.createSimpleMarker(location, carInfo);
 
         } catch (error) {
             console.error('添加标记失败:', error);
-            // 尝试使用备用方法
-            this.createSimpleMarker(location, carInfo);
+            this.setCenter(location);
         }
     }
 
@@ -163,31 +139,46 @@ class MapManager {
         return colors[carInfo.color] || colors['#007AFF'];
     }
 
-    // 创建简单标记（备用方法）
+    // 创建简单标记（主要方法）
     createSimpleMarker(location, carInfo) {
         try {
-            // 使用DOMOverlay作为备用方案
+            console.log('创建DOMOverlay标记...', carInfo);
+
+            // 使用DOMOverlay作为主要方案
             const div = document.createElement('div');
             div.style.cssText = `
-                width: 40px;
-                height: 40px;
+                width: 50px;
+                height: 50px;
                 background: ${carInfo.color || '#007AFF'};
                 border-radius: 50%;
                 border: 3px solid white;
-                box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+                box-shadow: 0 2px 8px rgba(0,0,0,0.3), 0 0 20px rgba(0,0,0,0.2);
                 display: flex;
+                flex-direction: column;
                 align-items: center;
                 justify-content: center;
                 color: white;
-                font-size: 18px;
+                font-size: 20px;
                 font-weight: bold;
-                position: absolute;
-                transform: translate(-50%, -50%);
+                position: relative;
                 z-index: 1000;
                 cursor: pointer;
+                user-select: none;
+                transition: transform 0.2s ease;
             `;
-            div.innerHTML = '🚗';
+            div.innerHTML = `
+                <div style="font-size: 24px;">🚗</div>
+                <div style="font-size: 8px; margin-top: -5px;">${carInfo.name.substring(0, 2)}</div>
+            `;
             div.title = `${carInfo.name} (${carInfo.plate})`;
+
+            // 添加悬停效果
+            div.onmouseover = function() {
+                this.style.transform = 'scale(1.1)';
+            };
+            div.onmouseout = function() {
+                this.style.transform = 'scale(1)';
+            };
 
             if (typeof TMap.DOMOverlay === 'function') {
                 const marker = new TMap.DOMOverlay({
@@ -197,15 +188,19 @@ class MapManager {
                 });
 
                 this.marker = marker;
+                console.log('DOMOverlay标记创建成功');
             } else {
+                console.log('TMap.DOMOverlay不可用，使用备用方案');
                 // 最后的备用方案：直接在地图中心显示信息
                 this.setCenter(location);
                 this.showCenterInfo(carInfo, location);
             }
 
         } catch (error) {
-            console.error('备用标记创建失败:', error);
+            console.error('DOMOverlay标记创建失败:', error);
+            // 最后的备用方案
             this.setCenter(location);
+            this.showCenterInfo(carInfo, location);
         }
     }
 
