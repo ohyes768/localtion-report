@@ -243,6 +243,16 @@ body {
     margin-bottom: 8px;
 }
 
+.share-tip {
+    background: #e3f2fd;
+    color: #1976d2;
+    padding: 10px;
+    border-radius: 5px;
+    margin-top: 10px;
+    font-size: 14px;
+    text-align: center;
+}
+
 /* 模态框样式 */
 .modal {
     position: fixed;

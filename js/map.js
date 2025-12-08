@@ -503,11 +503,188 @@ class MapManager {
     }
 
   
-    // 创建增强版截图（直接返回腾讯地图URL）
+    // 创建增强版截图（生成包含车辆信息的真实图片）
     async _createEnhancedScreenshot(baseMapUrl, location, carInfo) {
-        // 直接返回baseMapUrl，让浏览器处理图片显示
-        // 在分享页面通过CSS添加车辆标识
-        return baseMapUrl;
+        try {
+            console.log('🎨 生成真实图片，包含车辆标识...');
+
+            // 先获取腾讯地图图片
+            const mapImage = await this._loadImageElement(baseMapUrl);
+
+            // 创建最终画布
+            const canvas = document.createElement('canvas');
+            canvas.width = 600;  // 最终分享图片宽度
+            canvas.height = 400; // 最终分享图片高度
+            const ctx = canvas.getContext('2d');
+
+            // 1. 绘制背景
+            ctx.fillStyle = '#f8f9fa';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // 2. 绘制腾讯地图（居中）
+            const mapWidth = 300;
+            const mapHeight = 200;
+            const mapX = (canvas.width - mapWidth) / 2;
+            const mapY = 60;
+
+            ctx.drawImage(mapImage, mapX, mapY, mapWidth, mapHeight);
+
+            // 3. 添加地图边框
+            ctx.strokeStyle = '#ddd';
+            ctx.lineWidth = 1;
+            ctx.strokeRect(mapX, mapY, mapWidth, mapHeight);
+
+            // 4. 在地图中心绘制车辆标记
+            const centerX = canvas.width / 2;
+            const centerY = mapY + mapHeight / 2;
+            this._drawVehicleMarker(ctx, centerX, centerY, carInfo);
+
+            // 5. 绘制标题
+            this._drawTitle(ctx, canvas.width, carInfo);
+
+            // 6. 绘制车辆信息卡片
+            this._drawInfoCard(ctx, canvas.width, canvas.height, carInfo, location);
+
+            // 转换为图片URL
+            const dataUrl = canvas.toDataURL('image/jpeg', 0.9);
+            console.log('✅ 真实图片生成完成');
+            return dataUrl;
+
+        } catch (error) {
+            console.error('生成真实图片失败:', error);
+            // 如果生成失败，返回原地图URL
+            return baseMapUrl;
+        }
+    }
+
+    // 加载图片元素
+    async _loadImageElement(url) {
+        return new Promise((resolve, reject) => {
+            const img = new Image();
+            // 不设置crossOrigin，避免Referer问题
+
+            const timeout = setTimeout(() => {
+                reject(new Error('图片加载超时'));
+            }, 10000);
+
+            img.onload = () => {
+                clearTimeout(timeout);
+                resolve(img);
+            };
+
+            img.onerror = () => {
+                clearTimeout(timeout);
+                reject(new Error('图片加载失败'));
+            };
+
+            img.src = url;
+        });
+    }
+
+    // 绘制车辆标记
+    _drawVehicleMarker(ctx, x, y, carInfo) {
+        // 外圈发光
+        const gradient = ctx.createRadialGradient(x, y, 0, x, y, 25);
+        gradient.addColorStop(0, carInfo.color + '60');
+        gradient.addColorStop(1, carInfo.color + '00');
+        ctx.fillStyle = gradient;
+        ctx.beginPath();
+        ctx.arc(x, y, 25, 0, Math.PI * 2);
+        ctx.fill();
+
+        // 主标记
+        ctx.fillStyle = carInfo.color || '#FF0000';
+        ctx.strokeStyle = 'white';
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.arc(x, y, 12, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+
+        // 车辆图标
+        ctx.fillStyle = 'white';
+        ctx.font = 'bold 16px Arial';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('🚗', x, y);
+    }
+
+    // 绘制标题
+    _drawTitle(ctx, width, carInfo) {
+        ctx.fillStyle = '#333';
+        ctx.font = 'bold 18px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText('📍 车辆位置分享', width / 2, 30);
+    }
+
+    // 绘制信息卡片
+    _drawInfoCard(ctx, width, height, carInfo, location) {
+        const cardY = height - 100;
+        const cardWidth = width - 40;
+        const cardHeight = 80;
+
+        // 卡片阴影
+        ctx.shadowColor = 'rgba(0, 0, 0, 0.1)';
+        ctx.shadowBlur = 5;
+        ctx.shadowOffsetY = 2;
+
+        // 卡片背景
+        ctx.fillStyle = 'white';
+        this._roundRect(ctx, 20, cardY, cardWidth, cardHeight, 8);
+        ctx.fill();
+
+        // 重置阴影
+        ctx.shadowBlur = 0;
+        ctx.shadowOffsetY = 0;
+
+        // 卡片边框
+        ctx.strokeStyle = '#e0e0e0';
+        ctx.lineWidth = 1;
+        this._roundRect(ctx, 20, cardY, cardWidth, cardHeight, 8);
+        ctx.stroke();
+
+        // 车辆图标和信息
+        ctx.fillStyle = carInfo.color || '#FF0000';
+        ctx.font = 'bold 20px Arial';
+        ctx.textAlign = 'left';
+        ctx.fillText('🚙', 35, cardY + 35);
+
+        // 车辆名称
+        ctx.fillStyle = '#333';
+        ctx.font = 'bold 16px Arial';
+        ctx.fillText(carInfo.name, 65, cardY + 35);
+
+        // 车牌号
+        ctx.fillStyle = '#666';
+        ctx.font = '14px Arial';
+        ctx.fillText(`车牌: ${carInfo.plate}`, 35, cardY + 60);
+
+        // 时间
+        const time = new Date().toLocaleString('zh-CN', {
+            month: '2-digit',
+            day: '2-digit',
+            hour: '2-digit',
+            minute: '2-digit'
+        });
+        ctx.textAlign = 'right';
+        ctx.fillStyle = '#999';
+        ctx.font = '12px Arial';
+        ctx.fillText(time, width - 35, cardY + 35);
+    }
+
+    // 绘制圆角矩形
+    _roundRect(ctx, x, y, width, height, radius) {
+        ctx.beginPath();
+        ctx.moveTo(x + radius, y);
+        ctx.lineTo(x + width - radius, y);
+        ctx.quadraticCurveTo(x + width, y, x + width, y + radius);
+        ctx.lineTo(x + width, y + height - radius);
+        ctx.quadraticCurveTo(x + width, y + height, x + width - radius, y + height);
+        ctx.lineTo(x + radius, y + height);
+        ctx.quadraticCurveTo(x, y + height, x, y + height - radius);
+        ctx.lineTo(x, y + radius);
+        ctx.quadraticCurveTo(x, y, x + radius, y);
+        ctx.closePath();
     }
 
     

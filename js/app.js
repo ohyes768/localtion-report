@@ -327,25 +327,20 @@ class VehicleLocationApp {
         this.showPage('share-page');
 
         try {
-            // 生成截图（直接返回腾讯地图小尺寸URL）
+            // 生成包含车辆信息的真实图片
             const screenshotUrl = await this.mapManager.generateScreenshot(
                 this.currentLocation,
                 this.currentCar
             );
 
-            
-            // 设置截图图片
+            // 设置截图图片（现在是包含车辆信息的真实图片）
             const screenshotImage = document.getElementById('screenshot-image');
             if (screenshotImage) {
                 screenshotImage.src = screenshotUrl;
-                // 不设置crossOrigin，让浏览器自动发送Referer头
                 screenshotImage.style.width = '100%';
                 screenshotImage.style.height = 'auto';
                 screenshotImage.style.display = 'block';
             }
-
-            // 添加CSS叠加效果
-            this.addShareOverlayEffects();
 
             // 更新分享信息
             this.updateShareInfo();
@@ -356,119 +351,7 @@ class VehicleLocationApp {
         }
     }
 
-    // 添加分享页面叠加效果
-    addShareOverlayEffects() {
-        const screenshotContainer = document.querySelector('.screenshot-container');
-        if (!screenshotContainer) return;
-
-        // 移除旧的叠加层
-        const oldOverlay = screenshotContainer.querySelector('.share-map-overlay');
-        if (oldOverlay) {
-            oldOverlay.remove();
-        }
-
-        // 创建新的叠加层
-        const overlay = document.createElement('div');
-        overlay.className = 'share-map-overlay';
-        overlay.innerHTML = `
-            <div class="vehicle-center-marker" style="background-color: ${this.currentCar.color}">
-                🚗
-            </div>
-            <div class="map-title">📍 ${this.currentCar.name} 位置</div>
-        `;
-
-        screenshotContainer.appendChild(overlay);
-
-        // 添加样式（如果还没有）
-        this.addShareOverlayStyles();
-    }
-
-    // 添加叠加效果样式
-    addShareOverlayStyles() {
-        if (document.getElementById('share-overlay-styles')) return;
-
-        const styles = document.createElement('style');
-        styles.id = 'share-overlay-styles';
-        styles.textContent = `
-            .screenshot-container {
-                position: relative;
-                background: #f8f9fa;
-                border-radius: 8px;
-                overflow: hidden;
-                box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-            }
-
-            .screenshot-container img {
-                display: block;
-                width: 100%;
-                height: auto;
-            }
-
-            .share-map-overlay {
-                position: absolute;
-                top: 0;
-                left: 0;
-                width: 100%;
-                height: 100%;
-                pointer-events: none;
-            }
-
-            .vehicle-center-marker {
-                position: absolute;
-                top: 50%;
-                left: 50%;
-                transform: translate(-50%, -50%);
-                width: 50px;
-                height: 50px;
-                border-radius: 50%;
-                border: 3px solid white;
-                box-shadow: 0 2px 12px rgba(0,0,0,0.3);
-                display: flex;
-                justify-content: center;
-                align-items: center;
-                font-size: 24px;
-                color: white;
-                animation: markerPulse 2s infinite;
-            }
-
-            .map-title {
-                position: absolute;
-                top: 10px;
-                left: 0;
-                width: 100%;
-                text-align: center;
-                color: white;
-                font-size: 16px;
-                font-weight: bold;
-                text-shadow: 0 1px 3px rgba(0,0,0,0.5);
-                background: linear-gradient(180deg, rgba(0,0,0,0.6) 0%, transparent 100%);
-                padding: 10px;
-                box-sizing: border-box;
-            }
-
-            @keyframes markerPulse {
-                0% { transform: translate(-50%, -50%) scale(1); }
-                50% { transform: translate(-50%, -50%) scale(1.1); }
-                100% { transform: translate(-50%, -50%) scale(1); }
-            }
-
-            /* 移动端优化 */
-            @media (max-width: 480px) {
-                .vehicle-center-marker {
-                    width: 40px;
-                    height: 40px;
-                    font-size: 20px;
-                }
-
-                .map-title {
-                    font-size: 14px;
-                    padding: 8px;
-                }
-            }
-        `;
-        document.head.appendChild(styles);
-    }
-
+    
     // 更新分享信息
     updateShareInfo() {
         const address = document.getElementById('location-address').textContent;
