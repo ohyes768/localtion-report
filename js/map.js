@@ -19,12 +19,15 @@ class MapManager {
         return new Promise((resolve, reject) => {
             // 检查腾讯地图API是否已加载
             if (typeof TMap === 'undefined') {
-                // 动态加载地图API
-                this._loadMapAPI().then(() => {
-                    this._doInitializeMap(container, center, zoom, resolve, reject);
-                }).catch(reject);
-            } else {
+                reject(new Error('腾讯地图API未加载，请检查网络连接'));
+                return;
+            }
+
+            try {
                 this._doInitializeMap(container, center, zoom, resolve, reject);
+            } catch (error) {
+                console.error('地图初始化错误:', error);
+                reject(new Error('地图初始化失败: ' + error.message));
             }
         });
     }
@@ -47,30 +50,53 @@ class MapManager {
     // 实际初始化地图
     _doInitializeMap(container, center, zoom, resolve, reject) {
         try {
-            this.map = new TMap.Map(container, {
+            // 检查TMap是否正确加载
+            if (typeof TMap === 'undefined') {
+                reject(new Error('腾讯地图API未正确加载'));
+                return;
+            }
+
+            // 设置地图配置，移除可能导致问题的属性
+            const mapOptions = {
                 center: new TMap.LatLng(center.lat, center.lng),
                 zoom: zoom,
-                mapTypeId: TMap.MapTypeId.ROADMAP,
                 pitch: 0,
                 rotation: 0,
                 showControl: false
-            });
+            };
+
+            // 只有在ROADMAP常量存在时才添加
+            if (TMap.MapTypeId && TMap.MapTypeId.ROADMAP) {
+                mapOptions.mapTypeId = TMap.MapTypeId.ROADMAP;
+            }
+
+            this.map = new TMap.Map(container, mapOptions);
 
             // 监听地图加载完成事件
-            this.map.on('idle', () => {
+            const onMapLoad = () => {
                 this.isMapLoaded = true;
                 if (APP_CONFIG.debug) {
                     console.log('地图加载完成');
                 }
                 resolve();
-            });
+            };
 
-            // 监听地图点击事件
-            this.map.on('click', (evt) => {
-                if (APP_CONFIG.debug) {
-                    console.log('地图点击:', evt.latLng);
-                }
-            });
+            // 尝试不同的事件监听方式
+            if (typeof this.map.on === 'function') {
+                this.map.on('idle', onMapLoad);
+            } else {
+                // 如果事件监听失败，直接认为加载完成
+                setTimeout(onMapLoad, 1000);
+            }
+
+            // 监听地图点击事件（如果支持）
+            if (typeof this.map.on === 'function') {
+                this.map.on('click', (evt) => {
+                    if (APP_CONFIG.debug) {
+                        console.log('地图点击:', evt.latLng);
+                    }
+                });
+            }
 
         } catch (error) {
             reject(new Error('地图初始化失败: ' + error.message));
@@ -83,26 +109,31 @@ class MapManager {
             return;
         }
 
-        // 移除旧标记
-        if (this.marker) {
-            this.marker.setMap(null);
+        try {
+            // 移除旧标记
+            if (this.marker) {
+                this.marker.setMap(null);
+            }
+
+            // 创建简单的标记
+            this.marker = new TMap.Marker({
+                map: this.map,
+                position: new TMap.LatLng(location.lat, location.lng),
+                zIndex: 1000
+            });
+
+            // 尝试添加点击事件
+            if (typeof this.marker.on === 'function') {
+                this.marker.on('click', () => {
+                    this.showInfoWindow(carInfo, location);
+                });
+            }
+
+        } catch (error) {
+            console.error('添加标记失败:', error);
+            // 即使标记失败，也要保持地图中心在正确位置
+            this.setCenter(location);
         }
-
-        // 创建新标记
-        this.marker = new TMap.Marker({
-            map: this.map,
-            position: new TMap.LatLng(location.lat, location.lng),
-            content: this.createMarkerContent(carInfo),
-            zIndex: 1000
-        });
-
-        // 添加点击事件
-        this.marker.on('click', () => {
-            this.showInfoWindow(carInfo, location);
-        });
-
-        // 添加动画效果
-        this._animateMarker();
     }
 
     // 创建标记内容

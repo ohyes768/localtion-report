@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>地图修复测试</title>
+    <style>
+        body { margin: 0; padding: 20px; font-family: Arial, sans-serif; }
+        #map { width: 100%; height: 400px; border: 1px solid #ccc; }
+        .status { margin: 10px 0; padding: 10px; background: #f0f0f0; border-radius: 5px; }
+        .error { background: #ffebee; color: #c62828; }
+        .success { background: #e8f5e8; color: #2e7d32; }
+    </style>
+</head>
+<body>
+    <h1>腾讯地图API修复测试</h1>
+
+    <div id="status" class="status">正在测试...</div>
+
+    <div id="map"></div>
+
+    <script src="https://map.qq.com/api/gljs?v=1.exp&key=67PBZ-AWOWQ-TTW5A-BTI3M-BNMHH-2YBXZ&libraries=service"></script>
+    <script>
+        const statusDiv = document.getElementById('status');
+
+        function updateStatus(message, isError = false) {
+            statusDiv.textContent = message;
+            statusDiv.className = isError ? 'status error' : 'status success';
+        }
+
+        function testMapAPI() {
+            try {
+                updateStatus('检查TMap对象...');
+
+                if (typeof TMap === 'undefined') {
+                    updateStatus('TMap对象未定义', true);
+                    return;
+                }
+
+                updateStatus('TMap对象已加载，检查常量...');
+
+                // 检查常量
+                console.log('TMap对象:', TMap);
+                console.log('TMap.MapTypeId:', TMap.MapTypeId);
+
+                updateStatus('创建地图实例...');
+
+                const map = new TMap.Map('map', {
+                    center: new TMap.LatLng(39.908692, 116.397477),
+                    zoom: 16
+                });
+
+                updateStatus('地图创建成功！');
+
+                // 测试标记
+                setTimeout(() => {
+                    try {
+                        const marker = new TMap.Marker({
+                            map: map,
+                            position: new TMap.LatLng(39.908692, 116.397477)
+                        });
+
+                        updateStatus('地图和标记都创建成功！✅');
+
+                        // 测试事件
+                        if (typeof map.on === 'function') {
+                            map.on('click', () => {
+                                console.log('地图被点击');
+                            });
+                            updateStatus('地图、标记和事件都正常！✅✅');
+                        } else {
+                            updateStatus('地图和标记正常，但事件不可用⚠️');
+                        }
+
+                    } catch (error) {
+                        updateStatus(`标记创建失败: ${error.message}`, true);
+                    }
+                }, 1000);
+
+            } catch (error) {
+                updateStatus(`地图创建失败: ${error.message}`, true);
+                console.error('详细错误:', error);
+            }
+        }
+
+        // 页面加载后测试
+        window.onload = testMapAPI;
+    </script>
+</body>
+</html>
