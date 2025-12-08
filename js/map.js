@@ -437,320 +437,339 @@ class MapManager {
         return this.map.getZoom();
     }
 
-    // 生成地图截图 - 使用浏览器截图API替代canvas方案
-    async generateScreenshot(location, carInfo) {
+    // 生成地图分享页面（移除截图功能）
+    async generateSharePage(location, carInfo) {
         if (!location) {
-            throw new Error('无法生成截图：位置信息为空');
+            throw new Error('无法生成分享页面：位置信息为空');
         }
 
-        console.log('🎯 开始使用浏览器截图API生成截图');
+        console.log('🎯 生成腾讯位置服务分享页面');
         console.log('位置:', location);
         console.log('车辆信息:', carInfo);
 
         const cacheKey = `${location.lat}_${location.lng}_${MAP_CONFIG.zoom}`;
 
         // 检查缓存
-        const cachedUrl = Utils.storage.get(`screenshot_${cacheKey}`);
+        const cachedUrl = Utils.storage.get(`sharepage_${cacheKey}`);
         if (cachedUrl && !this._isPositionStale(cachedUrl.timestamp, CACHE_CONFIG.screenshotCacheTime)) {
             if (APP_CONFIG.debug) {
-                console.log('使用缓存的地图截图:', cachedUrl.url);
+                console.log('使用缓存的分享页面:', cachedUrl.url);
             }
             return cachedUrl.url;
         }
 
         try {
-            // 使用浏览器截图API方案
-            const screenshotUrl = await this._generateBrowserScreenshot(location, carInfo);
+            // 生成腾讯地图分享页面
+            const sharePageUrl = await this._generateTencentSharePage(location, carInfo);
 
             const cacheData = {
-                url: screenshotUrl,
+                url: sharePageUrl,
                 timestamp: Date.now(),
-                source: '浏览器截图'
+                source: '腾讯地图分享页面'
             };
-            Utils.storage.set(`screenshot_${cacheKey}`, cacheData, CACHE_CONFIG.screenshotCacheTime);
+            Utils.storage.set(`sharepage_${cacheKey}`, cacheData, CACHE_CONFIG.screenshotCacheTime);
 
-            console.log('✅ 浏览器截图生成成功');
-            return screenshotUrl;
+            console.log('✅ 腾讯地图分享页面生成成功');
+            return sharePageUrl;
 
         } catch (error) {
-            console.error('❌ 浏览器截图失败:', error.message);
-
-            // 备用方案：尝试使用静态图API
-            try {
-                console.log('🔄 尝试备用静态图方案...');
-                const fallbackUrl = await this._generateStaticMapScreenshot(location, carInfo);
-
-                const fallbackCacheData = {
-                    url: fallbackUrl,
-                    timestamp: Date.now(),
-                    source: '腾讯静态图(备用)'
-                };
-                Utils.storage.set(`screenshot_${cacheKey}`, fallbackCacheData, CACHE_CONFIG.screenshotCacheTime);
-
-                return fallbackUrl;
-            } catch (fallbackError) {
-                throw new Error('所有截图方案都失败：' + error.message);
-            }
+            console.error('❌ 分享页面生成失败:', error.message);
+            throw new Error('分享页面生成失败：' + error.message);
         }
     }
 
-    // 浏览器截图API实现
-    async _generateBrowserScreenshot(location, carInfo) {
-        console.log('🖼️ 准备使用浏览器截图API');
+    // 生成腾讯地图分享页面
+    async _generateTencentSharePage(location, carInfo) {
+        console.log('🗺️ 生成腾讯地图分享页面...');
 
-        // 检查浏览器支持
-        if (!navigator.mediaDevices || !navigator.mediaDevices.getDisplayMedia) {
-            throw new Error('浏览器不支持屏幕截图API，请使用现代浏览器');
-        }
-
+        // 获取地址信息
+        let address = '位置获取中...';
         try {
-            // 1. 确保地图显示在正确的状态
-            await this._prepareMapForScreenshot(location, carInfo);
-
-            // 2. 创建截图遮罩层，引导用户截取特定区域
-            const captureMask = this._createCaptureMask();
-
-            // 3. 请求屏幕截图权限
-            const stream = await navigator.mediaDevices.getDisplayMedia({
-                video: {
-                    mediaSource: 'screen',
-                    width: { ideal: 800 },
-                    height: { ideal: 600 }
-                }
-            });
-
-            // 4. 处理截图流
-            const screenshotData = await this._handleCaptureStream(stream, captureMask);
-
-            return screenshotData;
-
+            address = await this.getAddressFromLocation(location);
         } catch (error) {
-            if (error.name === 'NotAllowedError') {
-                throw new Error('用户拒绝了截图权限');
-            }
-            throw error;
+            console.warn('获取地址失败，使用坐标显示:', error);
+            address = `${location.lat.toFixed(6)}, ${location.lng.toFixed(6)}`;
         }
+
+        // 生成腾讯地图链接
+        const tencentMapUrl = this._generateTencentMapUrl(location, carInfo, address);
+
+        // 创建分享页面HTML
+        const sharePageHtml = this._createSharePageHtml(location, carInfo, address, tencentMapUrl);
+
+        // 转换为Blob URL
+        const blob = new Blob([sharePageHtml], { type: 'text/html;charset=utf-8' });
+        const blobUrl = URL.createObjectURL(blob);
+
+        return blobUrl;
     }
 
-    // 准备地图截图状态
-    async _prepareMapForScreenshot(location, carInfo) {
-        console.log('📍 准备地图状态...');
-
-        // 确保地图居中到正确位置
-        this.setCenter(location);
-        this.setZoom(MAP_CONFIG.zoom);
-
-        // 确保标记正确显示
-        this.addMarker(location, carInfo);
-
-        // 等待地图渲染完成
-        await new Promise(resolve => {
-            if (this.isMapLoaded) {
-                resolve();
-            } else {
-                setTimeout(resolve, 2000);
-            }
+    // 生成腾讯地图链接
+    _generateTencentMapUrl(location, carInfo, address) {
+        const params = new URLSearchParams({
+            center: `${location.lat},${location.lng}`,
+            zoom: MAP_CONFIG.zoom,
+            marker: `color:red|label:${carInfo.name.substring(0, 2)}|${location.lat},${location.lng}`,
+            referer: window.location.hostname
         });
 
-        // 添加截图专用样式
-        this._addScreenshotStyles();
-
-        console.log('✅ 地图准备完成');
+        return `https://map.qq.com/?${params.toString()}`;
     }
 
-    // 创建截图遮罩层
-    _createCaptureMask() {
-        const mask = document.createElement('div');
-        mask.id = 'screenshot-mask';
-        mask.style.cssText = `
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0, 0, 0, 0.8);
-            z-index: 99999;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
+    // 创建分享页面HTML
+    _createSharePageHtml(location, carInfo, address, tencentMapUrl) {
+        const currentTime = new Date().toLocaleString('zh-CN');
+        const accuracy = location.accuracy ? Math.round(location.accuracy) : '未知';
+
+        return `<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>📍 ${carInfo.name} - 车辆位置分享</title>
+    <meta name="description" content="车辆位置信息分享 - ${carInfo.name}（${carInfo.plate}）">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+            color: #333;
+        }
+        .container {
+            max-width: 500px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            overflow: hidden;
+            animation: slideUp 0.5s ease-out;
+        }
+        @keyframes slideUp {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        .header {
+            background: ${carInfo.color};
             color: white;
-            font-family: Arial, sans-serif;
-        `;
+            padding: 30px;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+        .header::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%);
+            animation: pulse 3s ease-in-out infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+        }
+        .car-icon {
+            font-size: 48px;
+            margin-bottom: 10px;
+            animation: bounce 2s ease-in-out infinite;
+        }
+        @keyframes bounce {
+            0%, 20%, 50%, 80%, 100% { transform: translateY(0); }
+            40% { transform: translateY(-10px); }
+            60% { transform: translateY(-5px); }
+        }
+        .car-name {
+            font-size: 24px;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+        .car-plate {
+            font-size: 16px;
+            opacity: 0.9;
+        }
+        .content {
+            padding: 30px;
+        }
+        .location-card {
+            background: #f8f9fa;
+            border-radius: 15px;
+            padding: 20px;
+            margin-bottom: 20px;
+            border-left: 5px solid ${carInfo.color};
+        }
+        .location-title {
+            font-size: 18px;
+            font-weight: bold;
+            margin-bottom: 15px;
+            color: #333;
+            display: flex;
+            align-items: center;
+        }
+        .location-title .icon {
+            margin-right: 8px;
+            font-size: 20px;
+        }
+        .info-item {
+            display: flex;
+            align-items: flex-start;
+            margin-bottom: 12px;
+            font-size: 14px;
+        }
+        .info-label {
+            font-weight: bold;
+            color: #666;
+            margin-right: 10px;
+            min-width: 60px;
+        }
+        .info-value {
+            color: #333;
+            flex: 1;
+            word-break: break-all;
+        }
+        .map-link {
+            display: inline-block;
+            background: #007AFF;
+            color: white;
+            text-decoration: none;
+            padding: 15px 30px;
+            border-radius: 25px;
+            font-weight: bold;
+            text-align: center;
+            width: 100%;
+            margin-top: 20px;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(0, 122, 255, 0.3);
+        }
+        .map-link:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(0, 122, 255, 0.4);
+        }
+        .map-link .icon {
+            margin-right: 8px;
+        }
+        .footer {
+            text-align: center;
+            padding: 20px;
+            font-size: 12px;
+            color: #999;
+            border-top: 1px solid #eee;
+        }
+        .accuracy-badge {
+            display: inline-block;
+            background: #28a745;
+            color: white;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 12px;
+            margin-left: 8px;
+        }
+        .accuracy-low {
+            background: #ffc107;
+        }
+        .accuracy-medium {
+            background: #fd7e14;
+        }
+        .accuracy-high {
+            background: #dc3545;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="car-icon">🚗</div>
+            <div class="car-name">${carInfo.name}</div>
+            <div class="car-plate">${carInfo.plate}</div>
+        </div>
 
-        mask.innerHTML = `
-            <div style="text-align: center; max-width: 400px; padding: 20px;">
-                <h2 style="margin-bottom: 20px;">📸 截图准备</h2>
-                <p style="margin-bottom: 20px; line-height: 1.5;">
-                    请选择地图区域进行截图：
-                </p>
-                <ol style="text-align: left; margin-bottom: 20px; line-height: 1.8;">
-                    <li>点击"开始分享"按钮</li>
-                    <li>在浏览器弹窗中选择要截取的地图区域</li>
-                    <li>确保包含车辆标记和位置信息</li>
-                    <li>点击"分享"完成截图</li>
-                </ol>
-                <div style="background: rgba(255,255,255,0.1); padding: 10px; border-radius: 5px; margin-bottom: 20px;">
-                    <p style="font-size: 14px; margin: 0;">
-                        💡 提示：请确保截取完整的地图和车辆标记
-                    </p>
+        <div class="content">
+            <div class="location-card">
+                <div class="location-title">
+                    <span class="icon">📍</span>
+                    车辆位置信息
                 </div>
-                <button id="start-capture" style="
-                    background: #007AFF;
-                    color: white;
-                    border: none;
-                    padding: 12px 30px;
-                    border-radius: 25px;
-                    font-size: 16px;
-                    cursor: pointer;
-                    margin-bottom: 10px;
-                ">开始分享</button>
-                <button id="cancel-capture" style="
-                    background: transparent;
-                    color: white;
-                    border: 1px solid white;
-                    padding: 12px 30px;
-                    border-radius: 25px;
-                    font-size: 16px;
-                    cursor: pointer;
-                ">取消</button>
+
+                <div class="info-item">
+                    <span class="info-label">📍 位置:</span>
+                    <span class="info-value">${address}</span>
+                </div>
+
+                <div class="info-item">
+                    <span class="info-label">🕐 时间:</span>
+                    <span class="info-value">${currentTime}</span>
+                </div>
+
+                <div class="info-item">
+                    <span class="info-label">📊 精度:</span>
+                    <span class="info-value">
+                        ${accuracy}米
+                        <span class="accuracy-badge ${this._getAccuracyClass(accuracy)}">
+                            ${this._getAccuracyLevel(accuracy)}
+                        </span>
+                    </span>
+                </div>
+
+                <div class="info-item">
+                    <span class="info-label">🔢 坐标:</span>
+                    <span class="info-value">${location.lat.toFixed(6)}, ${location.lng.toFixed(6)}</span>
+                </div>
             </div>
-        `;
 
-        document.body.appendChild(mask);
+            <a href="${tencentMapUrl}" class="map-link" target="_blank">
+                <span class="icon">🗺️</span>
+                在腾讯地图中查看
+            </a>
+        </div>
 
-        // 添加事件监听
-        return new Promise((resolve, reject) => {
-            const startBtn = mask.querySelector('#start-capture');
-            const cancelBtn = mask.querySelector('#cancel-capture');
+        <div class="footer">
+            <p>📍 车辆位置分享系统 - 腾讯位置服务</p>
+            <p>生成时间: ${currentTime}</p>
+        </div>
+    </div>
 
-            startBtn.onclick = () => {
-                document.body.removeChild(mask);
-                resolve();
-            };
-
-            cancelBtn.onclick = () => {
-                document.body.removeChild(mask);
-                reject(new Error('用户取消了截图'));
-            };
-
-            // 5秒后自动关闭
-            setTimeout(() => {
-                if (document.body.contains(mask)) {
-                    document.body.removeChild(mask);
-                    reject(new Error('截图超时'));
-                }
-            }, 30000);
-        });
+    <script>
+        // 防止页面被缓存
+        window.onload = function() {
+            if ('serviceWorker' in navigator) {
+                navigator.serviceWorker.getRegistrations().then(function(registrations) {
+                    for(let registration of registrations) {
+                        registration.unregister();
+                    }
+                });
+            }
+        };
+    </script>
+</body>
+</html>`;
     }
 
-    // 处理截图流
-    async _handleCaptureStream(stream, captureMask) {
-        const video = document.createElement('video');
-        video.srcObject = stream;
-        video.play();
-
-        // 等待视频开始播放
-        await new Promise(resolve => {
-            video.onloadedmetadata = resolve;
-        });
-
-        // 创建画布来捕获视频帧
-        const canvas = document.createElement('canvas');
-        canvas.width = video.videoWidth;
-        canvas.height = video.videoHeight;
-        const ctx = canvas.getContext('2d');
-
-        // 绘制当前视频帧
-        ctx.drawImage(video, 0, 0);
-
-        // 停止流
-        stream.getTracks().forEach(track => track.stop());
-
-        // 转换为图片数据URL
-        const imageDataUrl = canvas.toDataURL('image/jpeg', 0.9);
-
-        return imageDataUrl;
+    // 获取精度等级类名
+    _getAccuracyClass(accuracy) {
+        if (accuracy < 20) return 'accuracy-high';
+        if (accuracy < 50) return 'accuracy-medium';
+        return 'accuracy-low';
     }
 
-    // 添加截图专用样式
-    _addScreenshotStyles() {
-        const styleId = 'screenshot-styles';
-        if (document.getElementById(styleId)) {
-            return;
-        }
-
-        const style = document.createElement('style');
-        style.id = styleId;
-        style.textContent = `
-            .screenshot-ready {
-                position: relative;
-                border: 3px solid #007AFF !important;
-                box-shadow: 0 0 20px rgba(0, 122, 255, 0.3) !important;
-            }
-
-            #map-container.screenshot-ready {
-                border-radius: 10px;
-                overflow: hidden;
-            }
-
-            .map-header.screenshot-ready {
-                background: white;
-                padding: 15px;
-                border: 3px solid #007AFF;
-                border-bottom: none;
-                border-top-left-radius: 10px;
-                border-top-right-radius: 10px;
-            }
-
-            /* 确保车辆标记在截图中可见 */
-            #vehicle-marker {
-                z-index: 9999 !important;
-            }
-
-            /* 截图时隐藏不必要的元素 */
-            .screenshot-ready .action-buttons {
-                display: none !important;
-            }
-        `;
-        document.head.appendChild(style);
-
-        // 应用样式到相关元素
-        const mapContainer = document.getElementById('map-container');
-        const mapHeader = document.querySelector('.map-header');
-
-        if (mapContainer) {
-            mapContainer.classList.add('screenshot-ready');
-        }
-        if (mapHeader) {
-            mapHeader.classList.add('screenshot-ready');
-        }
-
-        // 3秒后移除样式
-        setTimeout(() => {
-            if (mapContainer) mapContainer.classList.remove('screenshot-ready');
-            if (mapHeader) mapHeader.classList.remove('screenshot-ready');
-        }, 30000);
-    }
-
-    // 清理截图相关资源
-    _cleanupScreenshot() {
-        // 移除遮罩层
-        const mask = document.getElementById('screenshot-mask');
-        if (mask) {
-            document.body.removeChild(mask);
-        }
-
-        // 移除截图样式
-        const style = document.getElementById('screenshot-styles');
-        if (style) {
-            document.head.removeChild(style);
-        }
-
-        // 移除元素的screenshot-ready类
-        document.querySelectorAll('.screenshot-ready').forEach(element => {
-            element.classList.remove('screenshot-ready');
-        });
+    // 获取精度等级文字
+    _getAccuracyLevel(accuracy) {
+        if (accuracy < 20) return '极高';
+        if (accuracy < 50) return '中等';
+        if (accuracy < 100) return '一般';
+        return '较低';
     }
 
 
@@ -1319,9 +1338,6 @@ class MapManager {
 
     // 销毁地图
     destroy() {
-        // 清理截图相关资源
-        this._cleanupScreenshot();
-
         if (this.infoWindow) {
             this.infoWindow.setMap(null);
             this.infoWindow = null;
