@@ -220,17 +220,31 @@ class LocationManager {
                 },
                 async (error) => {
                     const duration = Date.now() - startTime;
-                    const errorMessage = this._handleGeolocationError(error);
+                    const errorInfo = this._handleGeolocationError(error);
 
                     if (APP_CONFIG.debug) {
                         console.warn(`❌ 浏览器定位失败 (${this.locationStrategy.name}):`, error, `耗时: ${duration}ms`);
                     }
 
+                    // 检查是否需要立即使用默认位置
+                    if (errorInfo.shouldUseDefaultLocation) {
+                        console.warn(`📍 检测到 ${error.code === error.PERMISSION_DENIED ? '权限被拒绝' : '定位超时'}，使用默认位置（杭州西湖）`);
+                        const defaultLocation = this._createDefaultLocation();
+                        defaultLocation.browserStrategy = `${this.locationStrategy.name} + 默认位置`;
+                        defaultLocation.failureReason = error.code === error.PERMISSION_DENIED ? '权限被拒绝' : '定位超时';
+                        resolve(defaultLocation);
+                        return;
+                    }
+
                     // 如果还有重试机会，尝试重试
                     if (attempt < maxRetries) {
-                        // 检查是否是权限错误，权限错误不重试
+                        // 检查是否是权限错误，权限错误不重试但使用默认位置
                         if (error.code === error.PERMISSION_DENIED) {
-                            reject(new Error(errorMessage));
+                            console.warn(`🚫 权限被拒绝，使用默认位置`);
+                            const defaultLocation = this._createDefaultLocation();
+                            defaultLocation.browserStrategy = `${this.locationStrategy.name} + 默认位置`;
+                            defaultLocation.failureReason = '权限被拒绝';
+                            resolve(defaultLocation);
                             return;
                         }
 
@@ -262,10 +276,16 @@ class LocationManager {
                                 console.warn('腾讯定位也失败，使用默认测试位置（杭州西湖）');
                                 const defaultLocation = this._createDefaultLocation();
                                 defaultLocation.browserStrategy = `${this.locationStrategy.name} + 腾讯备用 + 默认位置`;
+                                defaultLocation.failureReason = '所有定位方式失败';
                                 resolve(defaultLocation);
                             }
                         } else {
-                            reject(new Error(this._getEnhancedErrorMessage(error, attempt)));
+                            // 最后回退到默认位置
+                            console.warn('所有定位方式都失败，使用默认测试位置（杭州西湖）');
+                            const defaultLocation = this._createDefaultLocation();
+                            defaultLocation.browserStrategy = `${this.locationStrategy.name} + 默认位置`;
+                            defaultLocation.failureReason = '所有定位方式失败';
+                            resolve(defaultLocation);
                         }
                     }
                 },
@@ -312,6 +332,30 @@ class LocationManager {
         // 添加默认位置标识
         defaultLocation.isDefaultLocation = true;
         defaultLocation.isRealLocation = false;
+
+        // 根据失败原因设置不同的描述
+        if (!defaultLocation.failureReason) {
+            defaultLocation.failureReason = '定位失败自动回退';
+        }
+
+        // 根据失败原因设置不同的显示信息
+        switch (defaultLocation.failureReason) {
+            case '权限被拒绝':
+                defaultLocation.provider = '权限被拒绝 (默认位置)';
+                defaultLocation.accuracyLevel = '模拟定位 - 权限被拒绝';
+                break;
+            case '定位超时':
+                defaultLocation.provider = '定位超时 (默认位置)';
+                defaultLocation.accuracyLevel = '模拟定位 - 超时回退';
+                break;
+            case '所有定位方式失败':
+                defaultLocation.provider = '定位失败 (默认位置)';
+                defaultLocation.accuracyLevel = '模拟定位 - 完全失败';
+                break;
+            default:
+                defaultLocation.provider = '自动回退 (默认位置)';
+                defaultLocation.accuracyLevel = '模拟定位 - 自动回退';
+        }
 
         if (APP_CONFIG.debug) {
             console.log('📍 创建默认测试位置:', defaultLocation);
@@ -389,7 +433,7 @@ class LocationManager {
                 },
                 async (error) => {
                     const duration = Date.now() - startTime;
-                    const errorMessage = this._handleGeolocationError(error);
+                    const errorInfo = this._handleGeolocationError(error);
 
                     if (APP_CONFIG.debug) {
                         console.warn(`定位失败 (尝试 ${attempt}):`, error, `耗时: ${duration}ms`);
@@ -402,11 +446,25 @@ class LocationManager {
                         options: finalOptions
                     });
 
+                    // 检查是否需要立即使用默认位置
+                    if (errorInfo.shouldUseDefaultLocation) {
+                        console.warn(`📍 检测到 ${error.code === error.PERMISSION_DENIED ? '权限被拒绝' : '定位超时'}，使用默认位置（杭州西湖）`);
+                        const defaultLocation = this._createDefaultLocation();
+                        defaultLocation.browserStrategy = '渐进式定位 + 默认位置';
+                        defaultLocation.failureReason = error.code === error.PERMISSION_DENIED ? '权限被拒绝' : '定位超时';
+                        resolve(defaultLocation);
+                        return;
+                    }
+
                     // 如果还有重试机会，尝试重试
                     if (attempt < maxAttempts) {
-                        // 检查是否是权限错误，权限错误不重试
+                        // 检查是否是权限错误，权限错误不重试但使用默认位置
                         if (error.code === error.PERMISSION_DENIED) {
-                            reject(new Error(errorMessage));
+                            console.warn(`🚫 权限被拒绝，使用默认位置`);
+                            const defaultLocation = this._createDefaultLocation();
+                            defaultLocation.browserStrategy = '渐进式定位 + 默认位置';
+                            defaultLocation.failureReason = '权限被拒绝';
+                            resolve(defaultLocation);
                             return;
                         }
 
@@ -436,6 +494,8 @@ class LocationManager {
                             // 使用默认测试位置（用于开发和测试）
                             console.warn('所有定位方式都失败，使用默认测试位置（杭州西湖）');
                             const defaultLocation = this._createDefaultLocation();
+                            defaultLocation.browserStrategy = '渐进式定位 + 默认位置';
+                            defaultLocation.failureReason = '所有定位方式失败';
                             resolve(defaultLocation);
                         }
                     }
@@ -493,21 +553,36 @@ class LocationManager {
     // 处理定位错误
     _handleGeolocationError(error) {
         let errorMessage;
+        let shouldUseDefaultLocation = false;
+
         switch(error.code) {
             case error.PERMISSION_DENIED:
                 errorMessage = ERROR_MESSAGES.PERMISSION_DENIED;
+                // 权限被拒绝时使用默认位置
+                shouldUseDefaultLocation = true;
+                if (APP_CONFIG.debug) {
+                    console.log('🚫 用户拒绝位置权限，将使用默认位置');
+                }
                 break;
             case error.POSITION_UNAVAILABLE:
                 errorMessage = ERROR_MESSAGES.POSITION_UNAVAILABLE;
                 break;
             case error.TIMEOUT:
                 errorMessage = ERROR_MESSAGES.TIMEOUT;
+                // 超时时使用默认位置
+                shouldUseDefaultLocation = true;
+                if (APP_CONFIG.debug) {
+                    console.log('⏰ 定位超时，将使用默认位置');
+                }
                 break;
             default:
                 errorMessage = '获取位置失败：' + error.message;
         }
 
-        return errorMessage;
+        return {
+            message: errorMessage,
+            shouldUseDefaultLocation: shouldUseDefaultLocation
+        };
     }
 
     // 开始监听位置变化
