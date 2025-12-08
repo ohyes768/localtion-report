@@ -457,30 +457,29 @@ class MapManager {
             return cachedUrl.url;
         }
 
-        // 优先使用腾讯地图静态图API（域名白名单已添加）
+        // 由于CORS限制持续存在，使用高级Canvas地图模拟作为主要方案
+        console.log('使用高级Canvas地图模拟方案生成截图...');
+
         try {
-            console.log('尝试使用腾讯地图静态图API...');
-            const staticMapUrl = await this._generateStaticMapScreenshot(location, carInfo);
+            const canvasUrl = await this._generateAdvancedCanvasScreenshot(location, carInfo);
 
             // 缓存结果
             const cacheData = {
-                url: staticMapUrl,
+                url: canvasUrl,
                 timestamp: Date.now()
             };
             Utils.storage.set(`screenshot_${cacheKey}`, cacheData, CACHE_CONFIG.screenshotCacheTime);
 
             if (APP_CONFIG.debug) {
-                console.log('腾讯地图静态图截图生成成功:', staticMapUrl);
+                console.log('高级Canvas地图截图生成成功:', canvasUrl);
             }
 
-            return staticMapUrl;
+            return canvasUrl;
 
-        } catch (staticMapError) {
-            console.warn('腾讯地图静态图API失败，使用Canvas备用方案:', staticMapError.message);
+        } catch (canvasError) {
+            console.error('高级Canvas截图失败，尝试基础Canvas方案...', canvasError.message);
 
-            // 使用备用方案：生成Canvas截图
             try {
-                console.log('使用Canvas备用方案生成截图...');
                 const canvasUrl = await this._generateCanvasScreenshot(location, carInfo);
 
                 // 缓存结果
@@ -491,13 +490,13 @@ class MapManager {
                 Utils.storage.set(`screenshot_${cacheKey}`, cacheData, CACHE_CONFIG.screenshotCacheTime);
 
                 if (APP_CONFIG.debug) {
-                    console.log('Canvas截图生成成功:', canvasUrl);
+                    console.log('基础Canvas截图生成成功:', canvasUrl);
                 }
 
                 return canvasUrl;
 
-            } catch (canvasError) {
-                console.error('Canvas截图失败，尝试SVG方案...');
+            } catch (basicCanvasError) {
+                console.error('基础Canvas截图也失败，尝试SVG方案...');
 
                 try {
                     // 最后的备用方案：生成纯文本位置图片
@@ -520,8 +519,8 @@ class MapManager {
                     console.error('所有截图方案都失败了');
                     Utils.logError(textError, {
                         type: 'screenshot_generation_all_failed',
-                        staticMapError: staticMapError,
-                        canvasError: canvasError,
+                        advancedCanvasError: canvasError,
+                        basicCanvasError: basicCanvasError,
                         textError: textError
                     });
 
@@ -589,7 +588,221 @@ class MapManager {
         });
     }
 
-    // 使用Canvas生成备用截图
+    // 生成高级Canvas地图模拟截图
+    async _generateAdvancedCanvasScreenshot(location, carInfo) {
+        return new Promise((resolve, reject) => {
+            try {
+                const canvas = document.createElement('canvas');
+                canvas.width = SHARE_CONFIG.screenshotSize.width;
+                canvas.height = SHARE_CONFIG.screenshotSize.height;
+                const ctx = canvas.getContext('2d');
+
+                console.log('开始生成高级Canvas地图模拟...');
+
+                // 1. 绘制地图背景（模拟真实的地图外观）
+                this._drawMapBackground(ctx, canvas.width, canvas.height, location);
+
+                // 2. 绘制地图要素（道路、建筑等）
+                this._drawMapFeatures(ctx, canvas.width, canvas.height, location);
+
+                // 3. 绘制车辆位置标记
+                this._drawVehicleMarker(ctx, canvas.width, canvas.height, location, carInfo);
+
+                // 4. 绘制车辆信息卡片
+                this._drawVehicleInfoCard(ctx, canvas.width, canvas.height, carInfo, location);
+
+                // 5. 绘制品牌标识
+                this._drawBranding(ctx, canvas.width, canvas.height, carInfo);
+
+                // 转换为图片URL
+                const dataUrl = canvas.toDataURL('image/png', 0.95);
+                console.log('高级Canvas地图截图生成完成，URL长度:', dataUrl.length);
+                resolve(dataUrl);
+
+            } catch (error) {
+                console.error('高级Canvas截图生成过程出错:', error);
+                reject(new Error('高级Canvas截图生成失败: ' + error.message));
+            }
+        });
+    }
+
+    // 绘制地图背景
+    _drawMapBackground(ctx, width, height, location) {
+        // 浅灰色背景，模拟真实地图底色
+        const gradient = ctx.createLinearGradient(0, 0, width, height);
+        gradient.addColorStop(0, '#f8f6f2');
+        gradient.addColorStop(0.5, '#f5f3ef');
+        gradient.addColorStop(1, '#f2f0ec');
+        ctx.fillStyle = gradient;
+        ctx.fillRect(0, 0, width, height);
+    }
+
+    // 绘制地图要素
+    _drawMapFeatures(ctx, width, height, location) {
+        const centerX = width / 2;
+        const centerY = height / 2;
+
+        // 绘制主要道路
+        ctx.strokeStyle = '#e0ddd5';
+        ctx.lineWidth = 3;
+
+        // 横向主路
+        ctx.beginPath();
+        ctx.moveTo(0, centerY);
+        ctx.lineTo(width, centerY);
+        ctx.stroke();
+
+        // 纵向主路
+        ctx.beginPath();
+        ctx.moveTo(centerX, 0);
+        ctx.lineTo(centerX, height);
+        ctx.stroke();
+
+        // 次要道路
+        ctx.strokeStyle = '#e8e5dd';
+        ctx.lineWidth = 2;
+
+        ctx.beginPath();
+        ctx.moveTo(centerX - 100, 0);
+        ctx.lineTo(centerX - 100, height);
+        ctx.stroke();
+
+        ctx.beginPath();
+        ctx.moveTo(centerX + 100, 0);
+        ctx.lineTo(centerX + 100, height);
+        ctx.stroke();
+
+        ctx.beginPath();
+        ctx.moveTo(0, centerY - 80);
+        ctx.lineTo(width, centerY - 80);
+        ctx.stroke();
+
+        ctx.beginPath();
+        ctx.moveTo(0, centerY + 80);
+        ctx.lineTo(width, centerY + 80);
+        ctx.stroke();
+
+        // 绘制建筑物/地块
+        this._drawBuildings(ctx, centerX, centerY);
+    }
+
+    // 绘制建筑物
+    _drawBuildings(ctx, centerX, centerY) {
+        const buildings = [
+            { x: centerX - 120, y: centerY - 60, w: 40, h: 35, color: '#d4d0c8' },
+            { x: centerX + 80, y: centerY - 100, w: 50, h: 40, color: '#d0ccc4' },
+            { x: centerX - 80, y: centerY + 40, w: 35, h: 30, color: '#d8d4cc' },
+            { x: centerX + 120, y: centerY + 60, w: 45, h: 35, color: '#d4d0c8' },
+            { x: centerX - 150, y: centerY - 20, w: 30, h: 25, color: '#dc d8d0' },
+            { x: centerX + 150, y: centerY - 40, w: 40, h: 30, color: '#d4d0c8' },
+        ];
+
+        buildings.forEach(building => {
+            ctx.fillStyle = building.color;
+            ctx.fillRect(building.x - building.w/2, building.y - building.h/2, building.w, building.h);
+
+            // 建筑物边框
+            ctx.strokeStyle = '#c8c4bc';
+            ctx.lineWidth = 1;
+            ctx.strokeRect(building.x - building.w/2, building.y - building.h/2, building.w, building.h);
+        });
+    }
+
+    // 绘制车辆标记
+    _drawVehicleMarker(ctx, width, height, location, carInfo) {
+        const centerX = width / 2;
+        const centerY = height / 2;
+
+        // 绘制车辆标记圆圈
+        const markerRadius = 25;
+
+        // 外圈发光效果
+        const glowGradient = ctx.createRadialGradient(centerX, centerY, 0, centerX, centerY, markerRadius * 2);
+        glowGradient.addColorStop(0, carInfo.color + '40'); // 40表示透明度25%
+        glowGradient.addColorStop(1, carInfo.color + '00');
+        ctx.fillStyle = glowGradient;
+        ctx.beginPath();
+        ctx.arc(centerX, centerY, markerRadius * 2, 0, Math.PI * 2);
+        ctx.fill();
+
+        // 主圆圈
+        ctx.fillStyle = carInfo.color || '#007AFF';
+        ctx.beginPath();
+        ctx.arc(centerX, centerY, markerRadius, 0, Math.PI * 2);
+        ctx.fill();
+
+        // 白色边框
+        ctx.strokeStyle = 'white';
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.arc(centerX, centerY, markerRadius, 0, Math.PI * 2);
+        ctx.stroke();
+
+        // 车辆图标
+        ctx.fillStyle = 'white';
+        ctx.font = 'bold 20px Arial';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('🚗', centerX, centerY - 2);
+
+        // 车辆名称
+        ctx.fillStyle = '#333';
+        ctx.font = 'bold 12px Arial';
+        ctx.fillText(carInfo.name.substring(0, 2), centerX, centerY + markerRadius + 20);
+    }
+
+    // 绘制车辆信息卡片
+    _drawVehicleInfoCard(ctx, width, height, carInfo, location) {
+        const cardX = 20;
+        const cardY = height - 120;
+        const cardWidth = 280;
+        const cardHeight = 100;
+
+        // 卡片背景
+        ctx.fillStyle = 'white';
+        ctx.shadowColor = 'rgba(0, 0, 0, 0.2)';
+        ctx.shadowBlur = 10;
+        ctx.shadowOffsetY = 3;
+        this._roundRect(ctx, cardX, cardY, cardWidth, cardHeight, 10);
+        ctx.fill();
+        ctx.shadowBlur = 0;
+
+        // 卡片边框
+        ctx.strokeStyle = '#e0e0e0';
+        ctx.lineWidth = 1;
+        this._roundRect(ctx, cardX, cardY, cardWidth, cardHeight, 10);
+        ctx.stroke();
+
+        // 车辆信息文字
+        ctx.fillStyle = '#333';
+        ctx.font = 'bold 16px Arial';
+        ctx.textAlign = 'left';
+        ctx.fillText(`🚙 ${carInfo.name}`, cardX + 15, cardY + 25);
+
+        ctx.font = '14px Arial';
+        ctx.fillStyle = '#666';
+        ctx.fillText(`车牌: ${carInfo.plate}`, cardX + 15, cardY + 50);
+
+        const time = Utils.formatTime();
+        ctx.fillText(`时间: ${time}`, cardX + 15, cardY + 75);
+    }
+
+    // 绘制品牌标识
+    _drawBranding(ctx, width, height, carInfo) {
+        // 右上角品牌标识
+        ctx.fillStyle = carInfo.color || '#007AFF';
+        ctx.font = 'bold 12px Arial';
+        ctx.textAlign = 'right';
+        ctx.fillText('家庭车辆位置系统', width - 20, 30);
+
+        // 左下角水印
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
+        ctx.font = '10px Arial';
+        ctx.textAlign = 'left';
+        ctx.fillText('车辆位置分享', 20, height - 10);
+    }
+
+    // 使用Canvas生成备用截图（基础版本）
     async _generateCanvasScreenshot(location, carInfo) {
         return new Promise((resolve, reject) => {
             try {
@@ -598,7 +811,7 @@ class MapManager {
                 canvas.height = SHARE_CONFIG.screenshotSize.height;
                 const ctx = canvas.getContext('2d');
 
-                console.log('开始生成Canvas截图...');
+                console.log('开始生成基础Canvas截图...');
 
                 // 绘制渐变背景
                 const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
@@ -684,12 +897,12 @@ class MapManager {
 
                 // 转换为图片URL
                 const dataUrl = canvas.toDataURL('image/png', 0.9);
-                console.log('Canvas截图生成完成，URL长度:', dataUrl.length);
+                console.log('基础Canvas截图生成完成，URL长度:', dataUrl.length);
                 resolve(dataUrl);
 
             } catch (error) {
-                console.error('Canvas截图生成过程出错:', error);
-                reject(new Error('Canvas截图生成失败: ' + error.message));
+                console.error('基础Canvas截图生成过程出错:', error);
+                reject(new Error('基础Canvas截图生成失败: ' + error.message));
             }
         });
     }
