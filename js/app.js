@@ -258,20 +258,30 @@ class VehicleLocationApp {
     // 更新地图显示
     async updateMapDisplay() {
         if (!this.currentLocation || !this.mapManager.isMapLoaded) {
+            console.log('地图未加载完成，跳过更新', APP_CONFIG.debug ? null : undefined);
             return;
         }
 
         try {
-            // 更新标记
+            if (APP_CONFIG.debug) {
+                console.log('开始更新地图显示，车辆:', this.currentCar.name);
+                console.log('当前位置:', this.currentLocation);
+            }
+
+            // 先更新标记
             this.mapManager.addMarker(this.currentLocation, this.currentCar);
 
-            // 更新地址信息
+            if (APP_CONFIG.debug) {
+                console.log('车辆标记添加完成');
+            }
+
+            // 然后更新地址信息
             const address = await this.getAddress();
             this.updateAddressDisplay(address);
 
         } catch (error) {
             console.error('更新地图显示失败:', error);
-            Utils.showToast('地图更新失败，请重试');
+            Utils.showToast('地图更新失败: ' + error.message);
         }
     }
 
