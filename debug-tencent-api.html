@@ -1,0 +1,466 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>腾讯地图API调试工具</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        .btn {
+            background: #0366d6;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        .btn:hover {
+            background: #005cc5;
+        }
+        .btn.danger {
+            background: #dc3545;
+        }
+        .btn.danger:hover {
+            background: #c82333;
+        }
+        .btn.success {
+            background: #28a745;
+        }
+        .btn.success:hover {
+            background: #218838;
+        }
+        .log {
+            background: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 5px;
+            padding: 15px;
+            margin: 10px 0;
+            font-family: monospace;
+            font-size: 12px;
+            max-height: 300px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+        }
+        .error {
+            color: #dc3545;
+        }
+        .success {
+            color: #28a745;
+        }
+        .warning {
+            color: #ffc107;
+        }
+        .info {
+            color: #17a2b8;
+        }
+        .test-result {
+            margin: 10px 0;
+            padding: 15px;
+            border-radius: 5px;
+        }
+        .test-result.success {
+            background: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+        }
+        .test-result.error {
+            background: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+        }
+        .test-result.warning {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            color: #856404;
+        }
+        input[type="text"] {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            margin: 5px 0;
+        }
+        .status-indicator {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+        .status-indicator.success {
+            background: #28a745;
+        }
+        .status-indicator.error {
+            background: #dc3545;
+        }
+        .status-indicator.warning {
+            background: #ffc107;
+        }
+        .status-indicator.info {
+            background: #17a2b8;
+        }
+        .grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+        @media (max-width: 768px) {
+            .grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🗺️ 腾讯地图API调试工具</h1>
+        <p>用于诊断和测试腾讯地图API配置问题</p>
+    </div>
+
+    <div class="container">
+        <h2>📋 当前配置信息</h2>
+        <div id="config-info" class="log">加载中...</div>
+    </div>
+
+    <div class="grid">
+        <div class="container">
+            <h2>🔧 基础API测试</h2>
+            <button class="btn" onclick="testBasicAPI()">测试基础配置</button>
+            <button class="btn" onclick="testDomainWhitelist()">测试域名白名单</button>
+            <button class="btn" onclick="testAPIQuota()">测试API配额</button>
+            <div id="basic-results"></div>
+        </div>
+
+        <div class="container">
+            <h2>🗺️ 静态地图API测试</h2>
+            <button class="btn" onclick="testStaticMap()">测试静态地图</button>
+            <button class="btn" onclick="testDifferentSizes()">测试不同尺寸</button>
+            <button class="btn" onclick="testDifferentLocations()">测试不同位置</button>
+            <div id="static-results"></div>
+        </div>
+    </div>
+
+    <div class="container">
+        <h2>🔍 实时调试日志</h2>
+        <button class="btn danger" onclick="clearLog()">清空日志</button>
+        <button class="btn success" onclick="exportLog()">导出日志</button>
+        <div id="debug-log" class="log">等待调试信息...</div>
+    </div>
+
+    <div class="container">
+        <h2>💡 解决方案建议</h2>
+        <div id="suggestions" class="test-result warning">
+            <h3>常见问题和解决方法：</h3>
+            <ol>
+                <li><strong>域名白名单问题：</strong> 确保在腾讯地图控制台添加了正确的域名</li>
+                <li><strong>API Key问题：</strong> 检查API Key是否有效且未过期</li>
+                <li><strong>配额问题：</strong> 检查API调用是否超出免费配额</li>
+                <li><strong>HTTPS问题：</strong> 确保在HTTPS环境下调用API</li>
+            </ol>
+        </div>
+    </div>
+
+    <script>
+        // 配置信息
+        const MAP_CONFIG = {
+            key: '67PBZ-AWOWQ-TTW5A-BTI3M-BNMHH-2YBXZ',
+            apiBaseUrl: 'https://apis.map.qq.com/ws/staticmap/v2/'
+        };
+
+        // 日志功能
+        function log(message, type = 'info') {
+            const logElement = document.getElementById('debug-log');
+            const timestamp = new Date().toLocaleTimeString();
+            const className = type;
+            logElement.innerHTML += `<span class="${className}">[${timestamp}] ${message}</span>\n`;
+            logElement.scrollTop = logElement.scrollHeight;
+            console.log(`[${type.toUpperCase()}] ${message}`);
+        }
+
+        // 清空日志
+        function clearLog() {
+            document.getElementById('debug-log').innerHTML = '日志已清空...\n';
+        }
+
+        // 导出日志
+        function exportLog() {
+            const logContent = document.getElementById('debug-log').textContent;
+            const blob = new Blob([logContent], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `tencent-map-debug-${new Date().toISOString().slice(0, 10)}.log`;
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+
+        // 显示配置信息
+        function showConfigInfo() {
+            const configDiv = document.getElementById('config-info');
+            configDiv.innerHTML = `
+🔑 API Key: ${MAP_CONFIG.key}
+🌐 当前域名: ${window.location.hostname}
+🔗 当前协议: ${window.location.protocol}
+🌍 完整域名: ${window.location.origin}
+📱 用户代理: ${navigator.userAgent.substring(0, 100)}...
+⏰ 当前时间: ${new Date().toLocaleString()}
+            `;
+            log(`当前域名: ${window.location.hostname}`, 'info');
+            log(`当前协议: ${window.location.protocol}`, 'info');
+            log(`完整域名: ${window.location.origin}`, 'info');
+        }
+
+        // 添加结果到页面
+        function addResult(containerId, message, type = 'info') {
+            const container = document.getElementById(containerId);
+            const resultDiv = document.createElement('div');
+            resultDiv.className = `test-result ${type}`;
+            const statusClass = type;
+            resultDiv.innerHTML = `<span class="status-indicator ${statusClass}"></span>${message}`;
+            container.appendChild(resultDiv);
+        }
+
+        // 测试基础API配置
+        async function testBasicAPI() {
+            log('开始测试基础API配置...', 'info');
+
+            try {
+                // 测试Geocoder API
+                const geocoderUrl = `https://apis.map.qq.com/ws/geocoder/v1/?location=39.908692,116.397477&key=${MAP_CONFIG.key}`;
+
+                log(`测试Geocoder API: ${geocoderUrl}`, 'info');
+
+                const response = await fetch(geocoderUrl);
+                const data = await response.json();
+
+                if (data.status === 0) {
+                    addResult('basic-results', '✅ Geocoder API工作正常', 'success');
+                    log('Geocoder API测试成功', 'success');
+                } else {
+                    addResult('basic-results', `❌ Geocoder API失败: ${data.message}`, 'error');
+                    log(`Geocoder API失败: ${JSON.stringify(data)}`, 'error');
+                }
+
+            } catch (error) {
+                addResult('basic-results', `❌ Geocoder API请求失败: ${error.message}`, 'error');
+                log(`Geocoder API请求异常: ${error.message}`, 'error');
+            }
+        }
+
+        // 测试域名白名单
+        async function testDomainWhitelist() {
+            log('开始测试域名白名单...', 'info');
+
+            const testUrls = [
+                'https://apis.map.qq.com/ws/staticmap/v2/?center=39.908692,116.397477&zoom=16&size=600x400&key=67PBZ-AWOWQ-TTW5A-BTI3M-BNMHH-2YBXZ',
+                'https://apis.map.qq.com/ws/staticmap/v2/?center=31.2304,121.4737&zoom=16&size=300x200&key=67PBZ-AWOWQ-TTW5A-BTI3M-BNMHH-2YBXZ'
+            ];
+
+            for (let i = 0; i < testUrls.length; i++) {
+                const url = testUrls[i];
+                log(`测试URL ${i + 1}: ${url}`, 'info');
+
+                try {
+                    const img = new Image();
+                    img.crossOrigin = 'anonymous';
+
+                    await new Promise((resolve, reject) => {
+                        img.onload = () => {
+                            addResult('basic-results', `✅ 静态图${i + 1}加载成功`, 'success');
+                            log(`静态图${i + 1}加载成功: ${img.naturalWidth}x${img.naturalHeight}`, 'success');
+                            resolve();
+                        };
+
+                        img.onerror = () => {
+                            addResult('basic-results', `❌ 静态图${i + 1}加载失败`, 'error');
+                            log(`静态图${i + 1}加载失败`, 'error');
+                            reject(new Error('图片加载失败'));
+                        };
+
+                        img.src = url + '&_test=' + Date.now();
+
+                        setTimeout(() => reject(new Error('超时')), 10000);
+                    });
+
+                } catch (error) {
+                    log(`域名测试失败: ${error.message}`, 'error');
+                }
+            }
+        }
+
+        // 测试API配额
+        async function testAPIQuota() {
+            log('开始测试API配额...', 'info');
+
+            try {
+                // 连续发送多个请求测试配额
+                for (let i = 0; i < 5; i++) {
+                    const testUrl = `${MAP_CONFIG.apiBaseUrl}?center=${39.908692 + i * 0.01},${116.397477 + i * 0.01}&zoom=16&size=100x100&key=${MAP_CONFIG.key}&_test=${Date.now()}_${i}`;
+
+                    const img = new Image();
+                    await new Promise((resolve, reject) => {
+                        img.onload = resolve;
+                        img.onerror = reject;
+                        img.src = testUrl;
+                        setTimeout(() => reject(new Error('超时')), 5000);
+                    });
+
+                    log(`配额测试请求 ${i + 1}/5 成功`, 'success');
+                }
+
+                addResult('basic-results', '✅ API配额正常', 'success');
+
+            } catch (error) {
+                addResult('basic-results', '❌ API配额可能不足或有限制', 'warning');
+                log(`API配额测试失败: ${error.message}`, 'warning');
+            }
+        }
+
+        // 测试静态地图
+        async function testStaticMap() {
+            log('开始测试静态地图API...', 'info');
+
+            const testLocation = {
+                lat: 39.908692,
+                lng: 116.397477,
+                name: '北京天安门'
+            };
+
+            const testCar = {
+                name: '测试车辆',
+                color: '#FF6B6B'
+            };
+
+            const params = new URLSearchParams({
+                center: `${testLocation.lat},${testLocation.lng}`,
+                zoom: 16,
+                size: '600x400',
+                maptype: 'roadmap',
+                markers: `size:normal|color:0xFF6B6B|label:A|${testLocation.lat},${testLocation.lng}`,
+                key: MAP_CONFIG.key,
+                format: 'png',
+                _: Date.now()
+            });
+
+            const testUrl = `${MAP_CONFIG.apiBaseUrl}?${params.toString()}`;
+
+            log(`测试静态地图URL: ${testUrl}`, 'info');
+
+            try {
+                const img = new Image();
+                img.crossOrigin = 'anonymous';
+
+                await new Promise((resolve, reject) => {
+                    img.onload = () => {
+                        log(`静态地图加载成功: ${img.naturalWidth}x${img.naturalHeight}`, 'success');
+                        addResult('static-results', '✅ 静态地图加载成功', 'success');
+                        resolve();
+                    };
+
+                    img.onerror = (error) => {
+                        log(`静态地图加载失败: ${error}`, 'error');
+                        addResult('static-results', '❌ 静态地图加载失败', 'error');
+                        reject(error);
+                    };
+
+                    img.src = testUrl;
+                    setTimeout(() => reject(new Error('超时')), 15000);
+                });
+
+            } catch (error) {
+                log(`静态地图测试异常: ${error.message}`, 'error');
+            }
+        }
+
+        // 测试不同尺寸
+        async function testDifferentSizes() {
+            log('开始测试不同尺寸...', 'info');
+
+            const sizes = [
+                { name: '小尺寸', value: '300x200' },
+                { name: '中尺寸', value: '600x400' },
+                { name: '大尺寸', value: '800x600' }
+            ];
+
+            for (const size of sizes) {
+                const testUrl = `${MAP_CONFIG.apiBaseUrl}?center=39.908692,116.397477&zoom=16&size=${size.value}&key=${MAP_CONFIG.key}&_test=${Date.now()}`;
+
+                try {
+                    const img = new Image();
+                    await new Promise((resolve, reject) => {
+                        img.onload = resolve;
+                        img.onerror = reject;
+                        img.src = testUrl;
+                        setTimeout(() => reject(new Error('超时')), 10000);
+                    });
+
+                    log(`尺寸${size.name}(${size.value})测试成功`, 'success');
+                    addResult('static-results', `✅ ${size.name}(${size.value})正常`, 'success');
+
+                } catch (error) {
+                    log(`尺寸${size.name}(${size.value})测试失败: ${error.message}`, 'error');
+                    addResult('static-results', `❌ ${size.name}(${size.value})失败`, 'error');
+                }
+            }
+        }
+
+        // 测试不同位置
+        async function testDifferentLocations() {
+            log('开始测试不同位置...', 'info');
+
+            const locations = [
+                { name: '北京', lat: 39.908692, lng: 116.397477 },
+                { name: '上海', lat: 31.2304, lng: 121.4737 },
+                { name: '广州', lat: 23.1291, lng: 113.2644 },
+                { name: '深圳', lat: 22.5431, lng: 114.0579 }
+            ];
+
+            for (const location of locations) {
+                const testUrl = `${MAP_CONFIG.apiBaseUrl}?center=${location.lat},${location.lng}&zoom=16&size=400x300&key=${MAP_CONFIG.key}&_test=${Date.now()}`;
+
+                try {
+                    const img = new Image();
+                    await new Promise((resolve, reject) => {
+                        img.onload = resolve;
+                        img.onerror = reject;
+                        img.src = testUrl;
+                        setTimeout(() => reject(new Error('超时')), 10000);
+                    });
+
+                    log(`位置${location.name}测试成功`, 'success');
+                    addResult('static-results', `✅ ${location.name}位置正常`, 'success');
+
+                } catch (error) {
+                    log(`位置${location.name}测试失败: ${error.message}`, 'error');
+                    addResult('static-results', `❌ ${location.name}位置失败`, 'error');
+                }
+            }
+        }
+
+        // 页面加载时初始化
+        document.addEventListener('DOMContentLoaded', () => {
+            log('腾讯地图API调试工具已启动', 'info');
+            showConfigInfo();
+
+            // 自动运行基础测试
+            setTimeout(() => {
+                testBasicAPI();
+            }, 1000);
+        });
+    </script>
+</body>
+</html>

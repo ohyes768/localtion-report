@@ -481,69 +481,256 @@ class MapManager {
   
     // 使用腾讯地图静态图API生成截图
     async _generateStaticMapScreenshot(location, carInfo) {
-        const params = new URLSearchParams({
-            center: `${location.lat},${location.lng}`,
-            zoom: MAP_CONFIG.zoom,
-            size: `${SHARE_CONFIG.screenshotSize.width}x${SHARE_CONFIG.screenshotSize.height}`,
-            maptype: SHARE_CONFIG.defaultMapType,
-            // 优化标记参数，使用车辆颜色
-            markers: `size:normal|color:${carInfo.color.replace('#', '0x')}|label:A|${location.lat},${location.lng}`,
-            key: MAP_CONFIG.key,
-            format: 'png',
-            // 添加referer参数帮助调试
-            _: Date.now()
+        // 尝试多个不同的参数组合来找到可用的配置
+        const attempts = [
+            {
+                name: '标准配置',
+                params: {
+                    center: `${location.lat},${location.lng}`,
+                    zoom: MAP_CONFIG.zoom,
+                    size: `${SHARE_CONFIG.screenshotSize.width}x${SHARE_CONFIG.screenshotSize.height}`,
+                    maptype: 'roadmap',
+                    markers: `size:normal|color:${carInfo.color.replace('#', '0x')}|label:A|${location.lat},${location.lng}`,
+                    key: MAP_CONFIG.key,
+                    format: 'png'
+                }
+            },
+            {
+                name: '简化配置（无标记）',
+                params: {
+                    center: `${location.lat},${location.lng}`,
+                    zoom: MAP_CONFIG.zoom,
+                    size: `${SHARE_CONFIG.screenshotSize.width}x${SHARE_CONFIG.screenshotSize.height}`,
+                    maptype: 'roadmap',
+                    key: MAP_CONFIG.key,
+                    format: 'png'
+                }
+            },
+            {
+                name: '小尺寸测试',
+                params: {
+                    center: `${location.lat},${location.lng}`,
+                    zoom: MAP_CONFIG.zoom,
+                    size: '300x200',
+                    maptype: 'roadmap',
+                    key: MAP_CONFIG.key,
+                    format: 'png'
+                }
+            },
+            {
+                name: '不同地图类型',
+                params: {
+                    center: `${location.lat},${location.lng}`,
+                    zoom: MAP_CONFIG.zoom,
+                    size: `${SHARE_CONFIG.screenshotSize.width}x${SHARE_CONFIG.screenshotSize.height}`,
+                    maptype: 'satellite',
+                    key: MAP_CONFIG.key,
+                    format: 'png'
+                }
+            }
+        ];
+
+        for (let i = 0; i < attempts.length; i++) {
+            const attempt = attempts[i];
+            try {
+                console.log(`🔄 尝试配置 ${i + 1}: ${attempt.name}`);
+
+                const params = new URLSearchParams(attempt.params);
+                params.set('_', Date.now()); // 防止缓存
+
+                const url = `${API_CONFIG.tencentMap.staticMap}?${params.toString()}`;
+
+                console.log(`🗺️ 配置${i + 1} URL:`, url);
+                console.log(`🔑 API Key:`, MAP_CONFIG.key);
+                console.log(`🌐 当前域名:`, window.location.origin);
+                console.log(`📍 请求位置:`, location.lat, location.lng);
+
+                // 验证图片是否可加载
+                const success = await this._testImageUrl(url);
+
+                if (success) {
+                    console.log(`✅ 配置${i + 1}(${attempt.name})加载成功`);
+
+                    // 如果不是最终配置，创建一个带有车辆信息的版本
+                    if (i > 0) {
+                        return await this._createEnhancedScreenshot(url, location, carInfo);
+                    }
+
+                    return url;
+                }
+
+            } catch (error) {
+                console.warn(`⚠️ 配置${i + 1}(${attempt.name})失败:`, error.message);
+
+                // 最后一次尝试失败时，提供详细的错误信息
+                if (i === attempts.length - 1) {
+                    return await this._handleAllAttemptsFailed(location, carInfo);
+                }
+            }
+        }
+    }
+
+    // 测试图片URL是否可以加载
+    async _testImageUrl(url) {
+        return new Promise((resolve, reject) => {
+            const img = new Image();
+
+            // 设置较短的超时时间
+            const timeout = setTimeout(() => {
+                reject(new Error('图片加载超时'));
+            }, 8000);
+
+            img.onload = () => {
+                clearTimeout(timeout);
+                console.log(`图片加载成功: ${img.naturalWidth}x${img.naturalHeight}`);
+                resolve(true);
+            };
+
+            img.onerror = (error) => {
+                clearTimeout(timeout);
+
+                // 检查是否是具体的错误图片
+                if (img.naturalWidth > 0) {
+                    console.warn(`图片加载但有错误: ${img.naturalWidth}x${img.naturalHeight}`);
+                    resolve(true); // 某些情况下错误图片仍然可用
+                } else {
+                    reject(new Error('图片加载失败'));
+                }
+            };
+
+            img.src = url;
         });
+    }
 
-        const url = `${API_CONFIG.tencentMap.staticMap}?${params.toString()}`;
+    // 创建增强版截图（在基础地图上添加车辆信息）
+    async _createEnhancedScreenshot(baseMapUrl, location, carInfo) {
+        try {
+            // 先加载基础地图
+            const baseMap = await this._loadImageAsCanvas(baseMapUrl);
 
-        console.log('🗺️ 腾讯地图静态图API URL:', url);
-        console.log('🔑 API Key:', MAP_CONFIG.key);
-        console.log('🌐 当前域名:', window.location.origin);
-        console.log('📍 请求位置:', location.lat, location.lng);
+            // 在基础地图上添加车辆信息和标记
+            const canvas = document.createElement('canvas');
+            canvas.width = SHARE_CONFIG.screenshotSize.width;
+            canvas.height = SHARE_CONFIG.screenshotSize.height;
+            const ctx = canvas.getContext('2d');
 
-        // 验证图片是否可加载
+            // 绘制基础地图
+            ctx.drawImage(baseMap, 0, 0, canvas.width, canvas.height);
+
+            // 添加车辆标记
+            this._drawVehicleMarkerOnCanvas(ctx, canvas.width, canvas.height, carInfo);
+
+            // 添加信息卡片
+            this._drawInfoCardOnCanvas(ctx, canvas.width, canvas.height, carInfo, location);
+
+            // 转换为URL
+            return canvas.toDataURL('image/png', 0.8);
+
+        } catch (error) {
+            console.error('创建增强截图失败:', error);
+            return baseMapUrl; // 返回基础地图URL作为备用
+        }
+    }
+
+    // 在Canvas上绘制车辆标记
+    _drawVehicleMarkerOnCanvas(ctx, width, height, carInfo) {
+        const centerX = width / 2;
+        const centerY = height / 2;
+
+        // 车辆标记圆圈
+        ctx.fillStyle = carInfo.color || '#FF0000';
+        ctx.strokeStyle = 'white';
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.arc(centerX, centerY, 15, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+
+        // 车辆图标
+        ctx.fillStyle = 'white';
+        ctx.font = 'bold 16px Arial';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('🚗', centerX, centerY);
+    }
+
+    // 在Canvas上绘制信息卡片
+    _drawInfoCardOnCanvas(ctx, width, height, carInfo, location) {
+        const cardY = height - 80;
+        const cardWidth = width - 40;
+        const cardHeight = 60;
+
+        // 卡片背景
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+        ctx.fillRect(20, cardY, cardWidth, cardHeight);
+
+        // 卡片边框
+        ctx.strokeStyle = 'white';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(20, cardY, cardWidth, cardHeight);
+
+        // 车辆信息
+        ctx.fillStyle = 'white';
+        ctx.font = 'bold 14px Arial';
+        ctx.textAlign = 'left';
+        ctx.fillText(`🚙 ${carInfo.name}`, 30, cardY + 25);
+
+        ctx.font = '12px Arial';
+        ctx.fillText(`车牌: ${carInfo.plate}`, 30, cardY + 45);
+
+        // 时间
+        const time = new Date().toLocaleString('zh-CN');
+        ctx.fillText(time, 30, cardY + 65);
+    }
+
+    // 加载图片为Canvas对象
+    async _loadImageAsCanvas(url) {
         return new Promise((resolve, reject) => {
             const img = new Image();
             img.crossOrigin = 'anonymous';
 
-            // 增加更详细的错误处理
             img.onload = () => {
-                console.log('✅ 腾讯地图静态图加载成功，尺寸:', img.naturalWidth, 'x', img.naturalHeight);
-                resolve(url);
+                const canvas = document.createElement('canvas');
+                canvas.width = img.naturalWidth;
+                canvas.height = img.naturalHeight;
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(img, 0, 0);
+                resolve(canvas);
             };
 
-            img.onerror = (error) => {
-                console.error('❌ 腾讯地图静态图加载失败:', error);
-                console.error('❌ 失败URL:', url);
-                console.error('💡 可能的原因:');
-                console.error('   1. API Key未配置或已过期');
-                console.error('   2. 域名白名单未包含当前域名:', window.location.hostname);
-                console.error('   3. API配额已用完');
-                console.error('   4. 网络连接问题');
-
-                // 提供详细的错误信息
-                let errorMsg = '静态地图API调用失败';
-                if (img.naturalWidth === 0) {
-                    errorMsg += `\n\n请检查腾讯地图控制台的域名白名单设置：\n- 控制台: https://lbs.qq.com/console/myapp.html\n- 当前域名: ${window.location.hostname}\n- 需要将域名添加到白名单中`;
-                }
-
-                reject(new Error(errorMsg));
-            };
-
-            img.onabort = () => {
-                console.warn('静态地图图片加载被取消');
-                reject(new Error('静态地图图片加载被取消'));
-            };
-
-            // 设置图片源
+            img.onerror = reject;
             img.src = url;
-
-            // 设置超时时间
-            setTimeout(() => {
-                console.warn('⏰ 静态地图API请求超时（15秒）');
-                reject(new Error('静态地图API请求超时，请检查网络连接或API配额'));
-            }, 15000);
         });
+    }
+
+    // 处理所有尝试都失败的情况
+    async _handleAllAttemptsFailed(location, carInfo) {
+        console.error('🚨 所有腾讯地图API配置都失败');
+
+        // 检查是否是调试模式
+        if (APP_CONFIG.debug) {
+            // 提供调试链接
+            const debugUrl = `${window.location.origin}/debug-tencent-api.html`;
+            console.error(`🔍 请访问调试页面检查配置: ${debugUrl}`);
+        }
+
+        // 提供详细的错误信息
+        const errorMsg = `腾讯地图静态图API调用失败
+
+当前配置信息:
+- 域名: ${window.location.hostname}
+- API Key: ${MAP_CONFIG.key.substring(0, 8)}...
+- 协议: ${window.location.protocol}
+
+可能的解决方案:
+1. 检查腾讯地图控制台域名白名单
+2. 验证API Key是否有效
+3. 确认API配额未用完
+4. 确保使用HTTPS协议访问
+
+调试工具: ${window.location.origin}/debug-tencent-api.html`;
+
+        throw new Error(errorMsg);
     }
 
   
