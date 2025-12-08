@@ -407,7 +407,7 @@ class MapManager {
 
         // 检查缓存
         const cachedUrl = Utils.storage.get(`screenshot_${cacheKey}`);
-        if (cachedUrl && !Utils.storage.isPositionStale(cachedUrl.timestamp, CACHE_CONFIG.screenshotCacheTime)) {
+        if (cachedUrl && !this._isPositionStale(cachedUrl.timestamp, CACHE_CONFIG.screenshotCacheTime)) {
             if (APP_CONFIG.debug) {
                 console.log('使用缓存的地图截图');
             }
@@ -477,7 +477,7 @@ class MapManager {
         // 检查本地存储缓存
         const storageKey = `address_${cacheKey}`;
         const storageCache = Utils.storage.get(storageKey);
-        if (storageCache) {
+        if (storageCache && !this._isPositionStale(storageCache.timestamp || Date.now(), CACHE_CONFIG.addressCacheTime)) {
             if (APP_CONFIG.debug) {
                 console.log('使用本地缓存的地址:', storageCache.address);
             }
@@ -506,7 +506,10 @@ class MapManager {
                 });
 
                 // 缓存到本地存储（30分钟）
-                Utils.storage.set(storageKey, { address: address }, 30 * 60 * 1000);
+                Utils.storage.set(storageKey, {
+                    address: address,
+                    timestamp: Date.now()
+                }, 30 * 60 * 1000);
 
                 if (APP_CONFIG.debug) {
                     console.log('获取到新地址:', address);
@@ -541,6 +544,11 @@ class MapManager {
         const lng = location.lng.toFixed(6);
         const accuracy = location.accuracy ? Math.round(location.accuracy) : '未知';
         return `坐标: ${lat}, ${lng} (精度: ${accuracy}米)`;
+    }
+
+    // 检查位置是否过时（内部方法）
+    _isPositionStale(timestamp, maxAge) {
+        return (Date.now() - timestamp) > maxAge;
     }
 
     // 搜索周边POI
