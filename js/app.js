@@ -234,10 +234,7 @@ class VehicleLocationApp {
             // 显示地图页面
             this.showMapPage();
 
-            // 开始监听位置变化
-            this.locationManager.watchPosition((newLocation) => {
-                this.onLocationUpdate(newLocation);
-            });
+            // 移除自动位置监听 - 用户可以通过手动刷新按钮更新位置
 
         } catch (error) {
             this.handleLocationError(error);
@@ -296,28 +293,7 @@ class VehicleLocationApp {
         }
     }
 
-    // 位置更新回调
-    onLocationUpdate(location) {
-        const oldLocation = this.currentLocation;
-        this.currentLocation = location;
-
-        // 计算移动距离
-        if (oldLocation && LocationManager.isValidPosition(location)) {
-            const distance = LocationManager.calculateDistance(
-                oldLocation.lat, oldLocation.lng,
-                location.lat, location.lng
-            );
-
-            if (APP_CONFIG.debug && distance > 10) { // 移动超过10米
-                console.log(`位置更新，移动距离: ${Math.round(distance)}米`);
-            }
-        }
-
-        if (this.mapManager.isMapLoaded) {
-            this.updateMapDisplay();
-        }
-    }
-
+    
     // 刷新位置
     async refreshLocation() {
         this.showLoadingAnimation();
@@ -357,8 +333,7 @@ class VehicleLocationApp {
                 this.currentCar
             );
 
-            console.log('🎨 简化分享：直接使用腾讯地图 + CSS叠加');
-
+            
             // 设置截图图片
             const screenshotImage = document.getElementById('screenshot-image');
             if (screenshotImage) {
