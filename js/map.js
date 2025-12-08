@@ -481,92 +481,41 @@ class MapManager {
   
     // 使用腾讯地图静态图API生成截图
     async _generateStaticMapScreenshot(location, carInfo) {
-        // 尝试多个不同的参数组合来找到可用的配置
-        const attempts = [
-            {
-                name: '标准配置',
-                params: {
-                    center: `${location.lat},${location.lng}`,
-                    zoom: MAP_CONFIG.zoom,
-                    size: `${SHARE_CONFIG.screenshotSize.width}x${SHARE_CONFIG.screenshotSize.height}`,
-                    maptype: 'roadmap',
-                    markers: `size:normal|color:${carInfo.color.replace('#', '0x')}|label:A|${location.lat},${location.lng}`,
-                    key: MAP_CONFIG.key,
-                    format: 'png'
-                }
-            },
-            {
-                name: '简化配置（无标记）',
-                params: {
-                    center: `${location.lat},${location.lng}`,
-                    zoom: MAP_CONFIG.zoom,
-                    size: `${SHARE_CONFIG.screenshotSize.width}x${SHARE_CONFIG.screenshotSize.height}`,
-                    maptype: 'roadmap',
-                    key: MAP_CONFIG.key,
-                    format: 'png'
-                }
-            },
-            {
-                name: '小尺寸测试',
-                params: {
-                    center: `${location.lat},${location.lng}`,
-                    zoom: MAP_CONFIG.zoom,
-                    size: '300x200',
-                    maptype: 'roadmap',
-                    key: MAP_CONFIG.key,
-                    format: 'png'
-                }
-            },
-            {
-                name: '不同地图类型',
-                params: {
-                    center: `${location.lat},${location.lng}`,
-                    zoom: MAP_CONFIG.zoom,
-                    size: `${SHARE_CONFIG.screenshotSize.width}x${SHARE_CONFIG.screenshotSize.height}`,
-                    maptype: 'satellite',
-                    key: MAP_CONFIG.key,
-                    format: 'png'
-                }
+        console.log('🗺️ 使用小尺寸静态地图方案生成截图...');
+
+        // 使用成功的小尺寸配置
+        const params = new URLSearchParams({
+            center: `${location.lat},${location.lng}`,
+            zoom: MAP_CONFIG.zoom,
+            size: '300x200', // 使用成功的小尺寸
+            maptype: 'roadmap',
+            key: MAP_CONFIG.key,
+            format: 'png',
+            _: Date.now() // 防止缓存
+        });
+
+        const staticMapUrl = `${API_CONFIG.tencentMap.staticMap}?${params.toString()}`;
+
+        console.log('🗺️ 小尺寸地图 URL:', staticMapUrl);
+        console.log('🔑 API Key:', MAP_CONFIG.key);
+        console.log('🌐 当前域名:', window.location.origin);
+        console.log('📍 请求位置:', location.lat, location.lng);
+
+        try {
+            // 验证图片是否可加载
+            const success = await this._testImageUrl(staticMapUrl);
+
+            if (success) {
+                console.log('✅ 小尺寸静态地图加载成功');
+                // 创建带车辆标识的增强截图
+                return await this._createEnhancedScreenshot(staticMapUrl, location, carInfo);
+            } else {
+                throw new Error('小尺寸地图加载失败');
             }
-        ];
 
-        for (let i = 0; i < attempts.length; i++) {
-            const attempt = attempts[i];
-            try {
-                console.log(`🔄 尝试配置 ${i + 1}: ${attempt.name}`);
-
-                const params = new URLSearchParams(attempt.params);
-                params.set('_', Date.now()); // 防止缓存
-
-                const url = `${API_CONFIG.tencentMap.staticMap}?${params.toString()}`;
-
-                console.log(`🗺️ 配置${i + 1} URL:`, url);
-                console.log(`🔑 API Key:`, MAP_CONFIG.key);
-                console.log(`🌐 当前域名:`, window.location.origin);
-                console.log(`📍 请求位置:`, location.lat, location.lng);
-
-                // 验证图片是否可加载
-                const success = await this._testImageUrl(url);
-
-                if (success) {
-                    console.log(`✅ 配置${i + 1}(${attempt.name})加载成功`);
-
-                    // 如果不是最终配置，创建一个带有车辆信息的版本
-                    if (i > 0) {
-                        return await this._createEnhancedScreenshot(url, location, carInfo);
-                    }
-
-                    return url;
-                }
-
-            } catch (error) {
-                console.warn(`⚠️ 配置${i + 1}(${attempt.name})失败:`, error.message);
-
-                // 最后一次尝试失败时，提供详细的错误信息
-                if (i === attempts.length - 1) {
-                    return await this._handleAllAttemptsFailed(location, carInfo);
-                }
-            }
+        } catch (error) {
+            console.error('❌ 静态地图生成失败:', error.message);
+            throw new Error('静态地图API调用失败: ' + error.message);
         }
     }
 
@@ -602,29 +551,46 @@ class MapManager {
         });
     }
 
-    // 创建增强版截图（在基础地图上添加车辆信息）
+    // 创建增强版截图（在小尺寸地图上添加车辆标识）
     async _createEnhancedScreenshot(baseMapUrl, location, carInfo) {
         try {
+            console.log('🎨 开始创建增强截图，添加车辆标识...');
+
             // 先加载基础地图
             const baseMap = await this._loadImageAsCanvas(baseMapUrl);
 
-            // 在基础地图上添加车辆信息和标记
+            // 创建最终截图画布（使用分享配置的尺寸）
             const canvas = document.createElement('canvas');
-            canvas.width = SHARE_CONFIG.screenshotSize.width;
-            canvas.height = SHARE_CONFIG.screenshotSize.height;
+            canvas.width = SHARE_CONFIG.screenshotSize.width;  // 600
+            canvas.height = SHARE_CONFIG.screenshotSize.height; // 400
             const ctx = canvas.getContext('2d');
 
-            // 绘制基础地图
-            ctx.drawImage(baseMap, 0, 0, canvas.width, canvas.height);
+            // 1. 绘制背景
+            this._drawBackground(ctx, canvas.width, canvas.height, carInfo);
 
-            // 添加车辆标记
-            this._drawVehicleMarkerOnCanvas(ctx, canvas.width, canvas.height, carInfo);
+            // 2. 绘制基础地图（居中显示）
+            const mapWidth = 300;  // 小尺寸地图宽度
+            const mapHeight = 200; // 小尺寸地图高度
+            const mapX = (canvas.width - mapWidth) / 2;
+            const mapY = 60; // 留出标题空间
 
-            // 添加信息卡片
-            this._drawInfoCardOnCanvas(ctx, canvas.width, canvas.height, carInfo, location);
+            ctx.drawImage(baseMap, mapX, mapY, mapWidth, mapHeight);
+
+            // 3. 在地图中心添加车辆标记
+            const centerX = canvas.width / 2;
+            const centerY = mapY + mapHeight / 2;
+            this._drawEnhancedVehicleMarker(ctx, centerX, centerY, carInfo);
+
+            // 4. 绘制车辆信息卡片
+            this._drawVehicleInfoCard(ctx, canvas.width, canvas.height, carInfo, location);
+
+            // 5. 绘制位置信息
+            this._drawLocationInfo(ctx, canvas.width, canvas.height, location);
 
             // 转换为URL
-            return canvas.toDataURL('image/png', 0.8);
+            const dataUrl = canvas.toDataURL('image/png', 0.9);
+            console.log('✅ 增强截图创建完成');
+            return dataUrl;
 
         } catch (error) {
             console.error('创建增强截图失败:', error);
@@ -632,57 +598,130 @@ class MapManager {
         }
     }
 
-    // 在Canvas上绘制车辆标记
-    _drawVehicleMarkerOnCanvas(ctx, width, height, carInfo) {
-        const centerX = width / 2;
-        const centerY = height / 2;
+    // 绘制背景
+    _drawBackground(ctx, width, height, carInfo) {
+        // 创建渐变背景
+        const gradient = ctx.createLinearGradient(0, 0, 0, height);
+        gradient.addColorStop(0, carInfo.color + '20'); // 20% 透明度
+        gradient.addColorStop(1, '#f8f9fa');
+        ctx.fillStyle = gradient;
+        ctx.fillRect(0, 0, width, height);
+    }
 
-        // 车辆标记圆圈
+    // 绘制增强的车辆标记
+    _drawEnhancedVehicleMarker(ctx, x, y, carInfo) {
+        // 外圈发光效果
+        const glowGradient = ctx.createRadialGradient(x, y, 0, x, y, 30);
+        glowGradient.addColorStop(0, carInfo.color + '40'); // 40% 透明度
+        glowGradient.addColorStop(1, carInfo.color + '00'); // 0% 透明度
+        ctx.fillStyle = glowGradient;
+        ctx.beginPath();
+        ctx.arc(x, y, 30, 0, Math.PI * 2);
+        ctx.fill();
+
+        // 主标记圆圈
         ctx.fillStyle = carInfo.color || '#FF0000';
         ctx.strokeStyle = 'white';
         ctx.lineWidth = 3;
         ctx.beginPath();
-        ctx.arc(centerX, centerY, 15, 0, Math.PI * 2);
+        ctx.arc(x, y, 12, 0, Math.PI * 2);
         ctx.fill();
         ctx.stroke();
 
         // 车辆图标
         ctx.fillStyle = 'white';
-        ctx.font = 'bold 16px Arial';
+        ctx.font = 'bold 14px Arial';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        ctx.fillText('🚗', centerX, centerY);
+        ctx.fillText('🚗', x, y);
+
+        // 车辆名称
+        ctx.fillStyle = '#333';
+        ctx.font = 'bold 10px Arial';
+        ctx.fillText(carInfo.name.substring(0, 2), x, y + 20);
     }
 
-    // 在Canvas上绘制信息卡片
-    _drawInfoCardOnCanvas(ctx, width, height, carInfo, location) {
-        const cardY = height - 80;
+    // 绘制车辆信息卡片
+    _drawVehicleInfoCard(ctx, width, height, carInfo, location) {
+        const cardY = height - 100;
         const cardWidth = width - 40;
-        const cardHeight = 60;
+        const cardHeight = 70;
+
+        // 卡片阴影
+        ctx.shadowColor = 'rgba(0, 0, 0, 0.2)';
+        ctx.shadowBlur = 10;
+        ctx.shadowOffsetY = 3;
 
         // 卡片背景
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
-        ctx.fillRect(20, cardY, cardWidth, cardHeight);
+        ctx.fillStyle = 'white';
+        this._roundRect(ctx, 20, cardY, cardWidth, cardHeight, 8);
+        ctx.fill();
+
+        // 重置阴影
+        ctx.shadowBlur = 0;
+        ctx.shadowOffsetY = 0;
 
         // 卡片边框
-        ctx.strokeStyle = 'white';
+        ctx.strokeStyle = '#e0e0e0';
         ctx.lineWidth = 1;
-        ctx.strokeRect(20, cardY, cardWidth, cardHeight);
+        this._roundRect(ctx, 20, cardY, cardWidth, cardHeight, 8);
+        ctx.stroke();
 
-        // 车辆信息
-        ctx.fillStyle = 'white';
-        ctx.font = 'bold 14px Arial';
+        // 车辆图标和信息
+        ctx.fillStyle = carInfo.color || '#FF0000';
+        ctx.font = 'bold 20px Arial';
         ctx.textAlign = 'left';
-        ctx.fillText(`🚙 ${carInfo.name}`, 30, cardY + 25);
+        ctx.fillText('🚙', 35, cardY + 30);
 
-        ctx.font = '12px Arial';
-        ctx.fillText(`车牌: ${carInfo.plate}`, 30, cardY + 45);
+        // 车辆名称
+        ctx.fillStyle = '#333';
+        ctx.font = 'bold 16px Arial';
+        ctx.fillText(carInfo.name, 65, cardY + 30);
+
+        // 车牌号
+        ctx.fillStyle = '#666';
+        ctx.font = '14px Arial';
+        ctx.fillText(`车牌: ${carInfo.plate}`, 35, cardY + 55);
 
         // 时间
-        const time = new Date().toLocaleString('zh-CN');
-        ctx.fillText(time, 30, cardY + 65);
+        const time = Utils.formatTime();
+        ctx.textAlign = 'right';
+        ctx.fillText(time, width - 35, cardY + 30);
     }
 
+    // 绘制位置信息
+    _drawLocationInfo(ctx, width, height, location) {
+        const infoY = 20;
+
+        // 标题
+        ctx.fillStyle = '#333';
+        ctx.font = 'bold 18px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText('📍 车辆位置分享', width / 2, infoY);
+
+        // 坐标信息（小字）
+        ctx.fillStyle = '#666';
+        ctx.font = '10px Arial';
+        const coords = `${location.lat.toFixed(4)}, ${location.lng.toFixed(4)}`;
+        ctx.fillText(coords, width / 2, height - 15);
+    }
+
+    // 绘制圆角矩形的辅助函数
+    _roundRect(ctx, x, y, width, height, radius) {
+        ctx.beginPath();
+        ctx.moveTo(x + radius, y);
+        ctx.lineTo(x + width - radius, y);
+        ctx.quadraticCurveTo(x + width, y, x + width, y + radius);
+        ctx.lineTo(x + width, y + height - radius);
+        ctx.quadraticCurveTo(x + width, y + height, x + width - radius, y + height);
+        ctx.lineTo(x + radius, y + height);
+        ctx.quadraticCurveTo(x, y + height, x, y + height - radius);
+        ctx.lineTo(x, y + radius);
+        ctx.quadraticCurveTo(x, y, x + radius, y);
+        ctx.closePath();
+    }
+
+  
     // 加载图片为Canvas对象
     async _loadImageAsCanvas(url) {
         return new Promise((resolve, reject) => {
