@@ -457,56 +457,54 @@ class MapManager {
             return cachedUrl.url;
         }
 
-        // 首先尝试使用腾讯地图静态图API
+        // 由于CORS限制，直接使用Canvas方案作为主要方案
+        console.log('由于腾讯地图API存在CORS限制，直接使用Canvas方案生成截图...');
+
         try {
-            console.log('尝试使用腾讯地图静态图API...');
-            const staticMapUrl = await this._generateStaticMapScreenshot(location, carInfo);
+            const canvasUrl = await this._generateCanvasScreenshot(location, carInfo);
 
             // 缓存结果
             const cacheData = {
-                url: staticMapUrl,
+                url: canvasUrl,
                 timestamp: Date.now()
             };
             Utils.storage.set(`screenshot_${cacheKey}`, cacheData, CACHE_CONFIG.screenshotCacheTime);
 
             if (APP_CONFIG.debug) {
-                console.log('静态地图截图生成成功:', staticMapUrl);
+                console.log('Canvas截图生成成功:', canvasUrl);
             }
 
-            return staticMapUrl;
+            return canvasUrl;
 
-        } catch (staticMapError) {
-            console.warn('腾讯地图静态图API失败，尝试备用方案:', staticMapError.message);
+        } catch (canvasError) {
+            console.error('Canvas截图失败，尝试SVG方案...');
 
-            // 使用备用方案：生成简单的Canvas截图
             try {
-                console.log('使用Canvas备用方案生成截图...');
-                const canvasUrl = await this._generateCanvasScreenshot(location, carInfo);
+                // 备用方案：生成纯文本位置图片
+                const textImageUrl = await this._generateTextImageScreenshot(location, carInfo);
 
                 // 缓存结果
                 const cacheData = {
-                    url: canvasUrl,
+                    url: textImageUrl,
                     timestamp: Date.now()
                 };
                 Utils.storage.set(`screenshot_${cacheKey}`, cacheData, CACHE_CONFIG.screenshotCacheTime);
 
                 if (APP_CONFIG.debug) {
-                    console.log('Canvas截图生成成功:', canvasUrl);
+                    console.log('SVG文本截图生成成功:', textImageUrl);
                 }
 
-                return canvasUrl;
+                return textImageUrl;
 
-            } catch (canvasError) {
+            } catch (textError) {
                 console.error('所有截图方案都失败了');
-                Utils.logError(canvasError, {
+                Utils.logError(textError, {
                     type: 'screenshot_generation_all_failed',
-                    staticMapError: staticMapError,
-                    canvasError: canvasError
+                    canvasError: canvasError,
+                    textError: textError
                 });
 
-                // 最后的备用方案：生成纯文本位置图片
-                const textImageUrl = await this._generateTextImageScreenshot(location, carInfo);
-                return textImageUrl;
+                throw new Error('所有截图方案都失败了，分享功能暂时不可用');
             }
         }
     }
@@ -563,45 +561,87 @@ class MapManager {
 
                 console.log('开始生成Canvas截图...');
 
-                // 绘制背景
-                ctx.fillStyle = '#f0f0f0';
+                // 绘制渐变背景
+                const gradient = ctx.createLinearGradient(0, 0, 0, canvas.height);
+                gradient.addColorStop(0, '#f8f9fa');
+                gradient.addColorStop(1, '#e9ecef');
+                ctx.fillStyle = gradient;
                 ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-                // 绘制标题区域
-                ctx.fillStyle = carInfo.color || '#007AFF';
-                ctx.fillRect(0, 0, canvas.width, 80);
+                // 绘制顶部标题区域
+                const titleGradient = ctx.createLinearGradient(0, 0, 0, 100);
+                titleGradient.addColorStop(0, carInfo.color || '#007AFF');
+                titleGradient.addColorStop(1, this._darkenColor(carInfo.color || '#007AFF', 30));
+                ctx.fillStyle = titleGradient;
+                ctx.fillRect(0, 0, canvas.width, 100);
+
+                // 绘制装饰性图案
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.1)';
+                ctx.beginPath();
+                ctx.arc(canvas.width - 80, 50, 60, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.beginPath();
+                ctx.arc(80, 50, 40, 0, Math.PI * 2);
+                ctx.fill();
 
                 // 绘制标题文字
                 ctx.fillStyle = 'white';
-                ctx.font = 'bold 28px Arial';
+                ctx.font = 'bold 32px Arial';
                 ctx.textAlign = 'center';
-                ctx.fillText(`🚗 ${carInfo.name} 位置分享`, canvas.width / 2, 50);
+                ctx.shadowColor = 'rgba(0, 0, 0, 0.3)';
+                ctx.shadowBlur = 4;
+                ctx.shadowOffsetY = 2;
+                ctx.fillText('🚗 车辆位置分享', canvas.width / 2, 55);
+                ctx.shadowBlur = 0;
 
-                // 绘制白色卡片背景
+                // 绘制主要内容卡片
+                const cardY = 140;
+                const cardHeight = 200;
                 ctx.fillStyle = 'white';
-                ctx.fillRect(50, 120, canvas.width - 100, canvas.height - 200);
-                ctx.strokeStyle = '#ddd';
-                ctx.strokeRect(50, 120, canvas.width - 100, canvas.height - 200);
+                this._roundRect(ctx, 30, cardY, canvas.width - 60, cardHeight, 15);
+                ctx.fill();
+
+                // 卡片边框
+                ctx.strokeStyle = '#e0e0e0';
+                ctx.lineWidth = 1;
+                this._roundRect(ctx, 30, cardY, canvas.width - 60, cardHeight, 15);
+                ctx.stroke();
+
+                // 绘制车辆信息
+                ctx.fillStyle = '#333';
+                ctx.font = 'bold 24px Arial';
+                ctx.textAlign = 'left';
+                ctx.fillText(`🚙 ${carInfo.name}`, 60, cardY + 50);
+
+                ctx.font = '18px Arial';
+                ctx.fillStyle = '#666';
+                ctx.fillText(`车牌号: ${carInfo.plate}`, 60, cardY + 85);
+
+                // 绘制分割线
+                ctx.strokeStyle = '#f0f0f0';
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.moveTo(60, cardY + 110);
+                ctx.lineTo(canvas.width - 60, cardY + 110);
+                ctx.stroke();
 
                 // 绘制位置信息
-                ctx.fillStyle = '#333';
-                ctx.font = '20px Arial';
-                ctx.textAlign = 'left';
-                ctx.fillText(`车牌: ${carInfo.plate}`, 80, 170);
-
-                ctx.font = '16px Arial';
                 ctx.fillStyle = '#666';
-                const locationText = `位置: ${location.lat.toFixed(6)}, ${location.lng.toFixed(6)}`;
-                ctx.fillText(locationText, 80, 210);
+                ctx.font = '16px Arial';
+                const locationText = `📍 ${location.lat.toFixed(6)}, ${location.lng.toFixed(6)}`;
+                ctx.fillText(locationText, 60, cardY + 140);
 
-                // 绘制时间
-                ctx.fillStyle = '#999';
                 const time = Utils.formatTime();
-                ctx.fillText(`更新时间: ${time}`, 80, 240);
+                ctx.fillText(`🕒 ${time}`, 60, cardY + 165);
 
-                // 绘制精度信息
                 const accuracy = location.accuracy ? Math.round(location.accuracy) : '未知';
-                ctx.fillText(`定位精度: ${accuracy}米`, 80, 270);
+                ctx.fillText(`🎯 精度: ${accuracy}米`, 60, cardY + 190);
+
+                // 绘制底部提示
+                ctx.fillStyle = '#999';
+                ctx.font = '14px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText('扫描车辆二维码获取实时位置', canvas.width / 2, canvas.height - 30);
 
                 // 转换为图片URL
                 const dataUrl = canvas.toDataURL('image/png', 0.9);
@@ -613,6 +653,34 @@ class MapManager {
                 reject(new Error('Canvas截图生成失败: ' + error.message));
             }
         });
+    }
+
+    // 绘制圆角矩形的辅助函数
+    _roundRect(ctx, x, y, width, height, radius) {
+        ctx.beginPath();
+        ctx.moveTo(x + radius, y);
+        ctx.lineTo(x + width - radius, y);
+        ctx.quadraticCurveTo(x + width, y, x + width, y + radius);
+        ctx.lineTo(x + width, y + height - radius);
+        ctx.quadraticCurveTo(x + width, y + height, x + width - radius, y + height);
+        ctx.lineTo(x + radius, y + height);
+        ctx.quadraticCurveTo(x, y + height, x, y + height - radius);
+        ctx.lineTo(x, y + radius);
+        ctx.quadraticCurveTo(x, y, x + radius, y);
+        ctx.closePath();
+    }
+
+    // 颜色加深辅助函数
+    _darkenColor(color, percent) {
+        // 简单的颜色加深实现
+        const num = parseInt(color.replace('#', ''), 16);
+        const amt = Math.round(2.55 * percent);
+        const R = (num >> 16) - amt;
+        const G = (num >> 8 & 0x00FF) - amt;
+        const B = (num & 0x0000FF) - amt;
+        return '#' + (0x1000000 + (R < 255 ? R < 1 ? 0 : R : 255) * 0x10000 +
+            (G < 255 ? G < 1 ? 0 : G : 255) * 0x100 +
+            (B < 255 ? B < 1 ? 0 : B : 255)).toString(16).slice(1);
     }
 
     // 生成纯文本位置图片作为最后备用方案

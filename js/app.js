@@ -715,39 +715,15 @@ class VehicleLocationApp {
 
     // 处理截图加载错误
     async _handleScreenshotError(failedUrl, imageElement) {
-        console.log('处理截图加载错误...');
+        console.log('处理截图加载错误，URL:', failedUrl);
 
-        try {
-            // 如果是腾讯地图API失败，立即尝试Canvas方案
-            if (failedUrl.includes('apis.map.qq.com')) {
-                console.log('腾讯地图API截图失败，尝试Canvas方案...');
-                const canvasUrl = await this.mapManager._generateCanvasScreenshot(
-                    this.currentLocation,
-                    this.currentCar
-                );
-
-                console.log('Canvas截图生成成功，重新设置...');
-                imageElement.src = canvasUrl;
-
-                // 再次尝试加载
-                imageElement.onload = () => {
-                    console.log('Canvas截图加载成功');
-                    Utils.showToast('已生成备用截图');
-                };
-
-                imageElement.onerror = () => {
-                    console.error('Canvas截图也失败了，尝试SVG方案...');
-                    this._trySvgFallback(imageElement);
-                };
-
-            } else {
-                // 尝试SVG备用方案
-                this._trySvgFallback(imageElement);
-            }
-
-        } catch (error) {
-            console.error('备用截图方案也失败了:', error);
-            Utils.showToast('截图生成失败，分享功能暂时不可用');
+        // 如果是data URL失败（Canvas/SVG），尝试SVG备用方案
+        if (failedUrl.startsWith('data:')) {
+            console.log('Data URL截图失败，尝试SVG方案...');
+            this._trySvgFallback(imageElement);
+        } else {
+            console.log('未知URL类型，显示文本备用方案...');
+            this._showTextFallback();
         }
     }
 
