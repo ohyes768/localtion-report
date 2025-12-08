@@ -437,13 +437,14 @@ class MapManager {
         return this.map.getZoom();
     }
 
-    // 生成地图截图
+    // 生成地图截图 - 使用浏览器截图API替代canvas方案
     async generateScreenshot(location, carInfo) {
         if (!location) {
             throw new Error('无法生成截图：位置信息为空');
         }
 
-        console.log('开始生成截图，位置:', location);
+        console.log('🎯 开始使用浏览器截图API生成截图');
+        console.log('位置:', location);
         console.log('车辆信息:', carInfo);
 
         const cacheKey = `${location.lat}_${location.lng}_${MAP_CONFIG.zoom}`;
@@ -457,28 +458,302 @@ class MapManager {
             return cachedUrl.url;
         }
 
-        // 仅使用腾讯地图静态图API
         try {
-            console.log('使用腾讯地图静态图API生成截图...');
-            const tencentMapUrl = await this._generateStaticMapScreenshot(location, carInfo);
+            // 使用浏览器截图API方案
+            const screenshotUrl = await this._generateBrowserScreenshot(location, carInfo);
 
             const cacheData = {
-                url: tencentMapUrl,
+                url: screenshotUrl,
                 timestamp: Date.now(),
-                source: '腾讯地图'
+                source: '浏览器截图'
             };
             Utils.storage.set(`screenshot_${cacheKey}`, cacheData, CACHE_CONFIG.screenshotCacheTime);
 
-            console.log('腾讯地图截图生成成功');
-            return tencentMapUrl;
+            console.log('✅ 浏览器截图生成成功');
+            return screenshotUrl;
 
-        } catch (tencentError) {
-            console.error('腾讯地图API失败:', tencentError.message);
-            throw new Error('地图截图生成失败：' + tencentError.message);
+        } catch (error) {
+            console.error('❌ 浏览器截图失败:', error.message);
+
+            // 备用方案：尝试使用静态图API
+            try {
+                console.log('🔄 尝试备用静态图方案...');
+                const fallbackUrl = await this._generateStaticMapScreenshot(location, carInfo);
+
+                const fallbackCacheData = {
+                    url: fallbackUrl,
+                    timestamp: Date.now(),
+                    source: '腾讯静态图(备用)'
+                };
+                Utils.storage.set(`screenshot_${cacheKey}`, fallbackCacheData, CACHE_CONFIG.screenshotCacheTime);
+
+                return fallbackUrl;
+            } catch (fallbackError) {
+                throw new Error('所有截图方案都失败：' + error.message);
+            }
         }
     }
 
-  
+    // 浏览器截图API实现
+    async _generateBrowserScreenshot(location, carInfo) {
+        console.log('🖼️ 准备使用浏览器截图API');
+
+        // 检查浏览器支持
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getDisplayMedia) {
+            throw new Error('浏览器不支持屏幕截图API，请使用现代浏览器');
+        }
+
+        try {
+            // 1. 确保地图显示在正确的状态
+            await this._prepareMapForScreenshot(location, carInfo);
+
+            // 2. 创建截图遮罩层，引导用户截取特定区域
+            const captureMask = this._createCaptureMask();
+
+            // 3. 请求屏幕截图权限
+            const stream = await navigator.mediaDevices.getDisplayMedia({
+                video: {
+                    mediaSource: 'screen',
+                    width: { ideal: 800 },
+                    height: { ideal: 600 }
+                }
+            });
+
+            // 4. 处理截图流
+            const screenshotData = await this._handleCaptureStream(stream, captureMask);
+
+            return screenshotData;
+
+        } catch (error) {
+            if (error.name === 'NotAllowedError') {
+                throw new Error('用户拒绝了截图权限');
+            }
+            throw error;
+        }
+    }
+
+    // 准备地图截图状态
+    async _prepareMapForScreenshot(location, carInfo) {
+        console.log('📍 准备地图状态...');
+
+        // 确保地图居中到正确位置
+        this.setCenter(location);
+        this.setZoom(MAP_CONFIG.zoom);
+
+        // 确保标记正确显示
+        this.addMarker(location, carInfo);
+
+        // 等待地图渲染完成
+        await new Promise(resolve => {
+            if (this.isMapLoaded) {
+                resolve();
+            } else {
+                setTimeout(resolve, 2000);
+            }
+        });
+
+        // 添加截图专用样式
+        this._addScreenshotStyles();
+
+        console.log('✅ 地图准备完成');
+    }
+
+    // 创建截图遮罩层
+    _createCaptureMask() {
+        const mask = document.createElement('div');
+        mask.id = 'screenshot-mask';
+        mask.style.cssText = `
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            z-index: 99999;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            color: white;
+            font-family: Arial, sans-serif;
+        `;
+
+        mask.innerHTML = `
+            <div style="text-align: center; max-width: 400px; padding: 20px;">
+                <h2 style="margin-bottom: 20px;">📸 截图准备</h2>
+                <p style="margin-bottom: 20px; line-height: 1.5;">
+                    请选择地图区域进行截图：
+                </p>
+                <ol style="text-align: left; margin-bottom: 20px; line-height: 1.8;">
+                    <li>点击"开始分享"按钮</li>
+                    <li>在浏览器弹窗中选择要截取的地图区域</li>
+                    <li>确保包含车辆标记和位置信息</li>
+                    <li>点击"分享"完成截图</li>
+                </ol>
+                <div style="background: rgba(255,255,255,0.1); padding: 10px; border-radius: 5px; margin-bottom: 20px;">
+                    <p style="font-size: 14px; margin: 0;">
+                        💡 提示：请确保截取完整的地图和车辆标记
+                    </p>
+                </div>
+                <button id="start-capture" style="
+                    background: #007AFF;
+                    color: white;
+                    border: none;
+                    padding: 12px 30px;
+                    border-radius: 25px;
+                    font-size: 16px;
+                    cursor: pointer;
+                    margin-bottom: 10px;
+                ">开始分享</button>
+                <button id="cancel-capture" style="
+                    background: transparent;
+                    color: white;
+                    border: 1px solid white;
+                    padding: 12px 30px;
+                    border-radius: 25px;
+                    font-size: 16px;
+                    cursor: pointer;
+                ">取消</button>
+            </div>
+        `;
+
+        document.body.appendChild(mask);
+
+        // 添加事件监听
+        return new Promise((resolve, reject) => {
+            const startBtn = mask.querySelector('#start-capture');
+            const cancelBtn = mask.querySelector('#cancel-capture');
+
+            startBtn.onclick = () => {
+                document.body.removeChild(mask);
+                resolve();
+            };
+
+            cancelBtn.onclick = () => {
+                document.body.removeChild(mask);
+                reject(new Error('用户取消了截图'));
+            };
+
+            // 5秒后自动关闭
+            setTimeout(() => {
+                if (document.body.contains(mask)) {
+                    document.body.removeChild(mask);
+                    reject(new Error('截图超时'));
+                }
+            }, 30000);
+        });
+    }
+
+    // 处理截图流
+    async _handleCaptureStream(stream, captureMask) {
+        const video = document.createElement('video');
+        video.srcObject = stream;
+        video.play();
+
+        // 等待视频开始播放
+        await new Promise(resolve => {
+            video.onloadedmetadata = resolve;
+        });
+
+        // 创建画布来捕获视频帧
+        const canvas = document.createElement('canvas');
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        const ctx = canvas.getContext('2d');
+
+        // 绘制当前视频帧
+        ctx.drawImage(video, 0, 0);
+
+        // 停止流
+        stream.getTracks().forEach(track => track.stop());
+
+        // 转换为图片数据URL
+        const imageDataUrl = canvas.toDataURL('image/jpeg', 0.9);
+
+        return imageDataUrl;
+    }
+
+    // 添加截图专用样式
+    _addScreenshotStyles() {
+        const styleId = 'screenshot-styles';
+        if (document.getElementById(styleId)) {
+            return;
+        }
+
+        const style = document.createElement('style');
+        style.id = styleId;
+        style.textContent = `
+            .screenshot-ready {
+                position: relative;
+                border: 3px solid #007AFF !important;
+                box-shadow: 0 0 20px rgba(0, 122, 255, 0.3) !important;
+            }
+
+            #map-container.screenshot-ready {
+                border-radius: 10px;
+                overflow: hidden;
+            }
+
+            .map-header.screenshot-ready {
+                background: white;
+                padding: 15px;
+                border: 3px solid #007AFF;
+                border-bottom: none;
+                border-top-left-radius: 10px;
+                border-top-right-radius: 10px;
+            }
+
+            /* 确保车辆标记在截图中可见 */
+            #vehicle-marker {
+                z-index: 9999 !important;
+            }
+
+            /* 截图时隐藏不必要的元素 */
+            .screenshot-ready .action-buttons {
+                display: none !important;
+            }
+        `;
+        document.head.appendChild(style);
+
+        // 应用样式到相关元素
+        const mapContainer = document.getElementById('map-container');
+        const mapHeader = document.querySelector('.map-header');
+
+        if (mapContainer) {
+            mapContainer.classList.add('screenshot-ready');
+        }
+        if (mapHeader) {
+            mapHeader.classList.add('screenshot-ready');
+        }
+
+        // 3秒后移除样式
+        setTimeout(() => {
+            if (mapContainer) mapContainer.classList.remove('screenshot-ready');
+            if (mapHeader) mapHeader.classList.remove('screenshot-ready');
+        }, 30000);
+    }
+
+    // 清理截图相关资源
+    _cleanupScreenshot() {
+        // 移除遮罩层
+        const mask = document.getElementById('screenshot-mask');
+        if (mask) {
+            document.body.removeChild(mask);
+        }
+
+        // 移除截图样式
+        const style = document.getElementById('screenshot-styles');
+        if (style) {
+            document.head.removeChild(style);
+        }
+
+        // 移除元素的screenshot-ready类
+        document.querySelectorAll('.screenshot-ready').forEach(element => {
+            element.classList.remove('screenshot-ready');
+        });
+    }
+
+
     // 使用腾讯地图静态图API生成截图
     async _generateStaticMapScreenshot(location, carInfo) {
         // 使用成功的小尺寸配置
@@ -1044,13 +1319,20 @@ class MapManager {
 
     // 销毁地图
     destroy() {
+        // 清理截图相关资源
+        this._cleanupScreenshot();
+
         if (this.infoWindow) {
             this.infoWindow.setMap(null);
             this.infoWindow = null;
         }
 
         if (this.marker) {
-            this.marker.setMap(null);
+            if (this.marker.setMap) {
+                this.marker.setMap(null);
+            } else if (this.marker.element && this.marker.element.parentNode) {
+                this.marker.element.parentNode.removeChild(this.marker.element);
+            }
             this.marker = null;
         }
 

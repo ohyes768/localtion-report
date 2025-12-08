@@ -1,22 +1,19 @@
-// 定位相关功能
+// 定位相关功能 - 集成腾讯位置服务前端定位组件
 class LocationManager {
     constructor() {
         this.currentPosition = null;
         this.watchId = null;
+        this.tencentGeolocation = null; // 腾讯定位组件实例
         this.callbacks = [];
         this.isWatching = false;
         this.lastPositionTime = 0;
         this.minPositionInterval = 5000; // 最小定位间隔5秒
+        this.useTencentLocation = false; // 是否使用腾讯定位组件
     }
 
-    // 获取当前位置（带重试机制）
+    // 获取当前位置（集成腾讯定位组件）
     getCurrentPosition(options = {}) {
         return new Promise((resolve, reject) => {
-            if (!navigator.geolocation) {
-                reject(new Error('您的浏览器不支持定位功能'));
-                return;
-            }
-
             // 检查定位频率限制
             const now = Date.now();
             if (now - this.lastPositionTime < this.minPositionInterval &&
@@ -26,11 +23,152 @@ class LocationManager {
                 return;
             }
 
-            // 渐进式定位策略
-            this._attemptLocation(options, 1)
-                .then(resolve)
-                .catch(reject);
+            // 优先使用腾讯定位组件
+            if (this.useTencentLocation && this._initTencentGeolocation()) {
+                this._attemptTencentLocation(options)
+                    .then(resolve)
+                    .catch(error => {
+                        console.warn('腾讯定位失败，回退到浏览器定位:', error.message);
+                        this._attemptBrowserLocation(options, 1)
+                            .then(resolve)
+                            .catch(reject);
+                    });
+            } else {
+                // 使用浏览器原生定位
+                this._attemptBrowserLocation(options, 1)
+                    .then(resolve)
+                    .catch(reject);
+            }
         });
+    }
+
+    // 初始化腾讯定位组件
+    _initTencentGeolocation() {
+        try {
+            // 检查腾讯地图API是否已加载
+            if (typeof TMap === 'undefined' || typeof TMap.Geolocation === 'undefined') {
+                console.warn('腾讯地图API未加载，无法使用腾讯定位组件');
+                return false;
+            }
+
+            if (!this.tencentGeolocation) {
+                this.tencentGeolocation = new TMap.Geolocation({
+                    timeout: 20000, // 20秒超时
+                    showButton: false, // 不显示定位按钮
+                    map: null, // 不绑定到特定地图
+                    enableHighAccuracy: true,
+                    complete: (result) => {
+                        console.log('腾讯定位组件初始化成功');
+                    },
+                    error: (error) => {
+                        console.warn('腾讯定位组件初始化失败:', error);
+                    }
+                });
+            }
+
+            return true;
+        } catch (error) {
+            console.error('腾讯定位组件初始化错误:', error);
+            return false;
+        }
+    }
+
+    // 使用腾讯定位组件获取位置
+    _attemptTencentLocation(options) {
+        return new Promise((resolve, reject) => {
+            if (!this.tencentGeolocation) {
+                reject(new Error('腾讯定位组件未初始化'));
+                return;
+            }
+
+            const startTime = Date.now();
+
+            this.tencentGeolocation.getLocation((result) => {
+                const duration = Date.now() - startTime;
+
+                if (result.status === 0) {
+                    const location = this._processTencentPosition(result);
+                    this.currentPosition = location;
+                    this.lastPositionTime = Date.now();
+
+                    // 缓存位置信息
+                    Utils.storage.set('last_position', location, CACHE_CONFIG.locationCacheTime);
+
+                    if (APP_CONFIG.debug) {
+                        console.log(`✅ 腾讯定位成功:`, location, `耗时: ${duration}ms`);
+                    }
+
+                    this.notifyCallbacks(location);
+                    resolve(location);
+                } else {
+                    const errorMessage = result.message || '腾讯定位失败';
+                    console.warn(`❌ 腾讯定位失败:`, errorMessage, `耗时: ${duration}ms`);
+                    reject(new Error(errorMessage));
+                }
+            }, {
+                timeout: options.timeout || 20000,
+                accuracy: 'high'
+            });
+        });
+    }
+
+    // 处理腾讯定位结果
+    _processTencentPosition(result) {
+        const location = {
+            lat: result.lat || result.location.lat,
+            lng: result.lng || result.location.lng,
+            accuracy: result.accuracy || 20, // 默认20米精度
+            altitude: null,
+            altitudeAccuracy: null,
+            heading: null,
+            speed: null,
+            timestamp: Date.now(),
+            provider: 'tencent' // 标识定位提供者
+        };
+
+        // 添加地址信息（如果腾讯提供了）
+        if (result.address) {
+            location.address = result.address;
+        }
+
+        // 添加精度级别描述
+        location.accuracyLevel = this.getAccuracyDescription(location.accuracy);
+
+        // 添加位置质量评分
+        location.quality = this._calculateLocationQuality(location);
+
+        return location;
+    }
+
+    // 浏览器原生定位（重命名原方法）
+    _attemptBrowserLocation(options, attempt) {
+        return this._attemptLocation(options, attempt);
+    }
+
+    // 启用腾讯定位组件
+    enableTencentLocation() {
+        if (typeof TMap !== 'undefined' && typeof TMap.Geolocation !== 'undefined') {
+            this.useTencentLocation = true;
+            console.log('✅ 已启用腾讯位置服务定位组件');
+            return true;
+        } else {
+            console.warn('⚠️ 腾讯地图API未加载，无法启用腾讯定位组件');
+            return false;
+        }
+    }
+
+    // 禁用腾讯定位组件
+    disableTencentLocation() {
+        this.useTencentLocation = false;
+        if (this.tencentGeolocation) {
+            try {
+                // 清理腾讯定位组件
+                this.tencentGeolocation = null;
+            } catch (error) {
+                console.error('清理腾讯定位组件失败:', error);
+            }
+        }
+        console.log('✅ 已禁用腾讯位置服务定位组件');
     }
 
     // 渐进式定位尝试
@@ -449,6 +587,9 @@ class LocationManager {
     destroy() {
         this.stopWatching();
 
+        // 清理腾讯定位组件
+        this.disableTencentLocation();
+
         if (this.cleanupTimer) {
             clearInterval(this.cleanupTimer);
             this.cleanupTimer = null;
@@ -456,9 +597,10 @@ class LocationManager {
 
         this.currentPosition = null;
         this.callbacks = [];
+        this.lastPositionTime = 0;
 
         if (APP_CONFIG.debug) {
-            console.log('定位管理器已销毁');
+            console.log('✅ 定位管理器已销毁');
         }
     }
 }

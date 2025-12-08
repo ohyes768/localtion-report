@@ -221,10 +221,18 @@ class VehicleLocationApp {
         });
     }
 
-    // 开始定位追踪
+    // 开始定位追踪（集成腾讯位置服务）
     async startLocationTracking() {
         try {
-            // 获取当前位置
+            // 初始化腾讯定位组件（如果可用）
+            if (typeof TMap !== 'undefined') {
+                const tencentLocationEnabled = this.locationManager.enableTencentLocation();
+                if (APP_CONFIG.debug) {
+                    console.log('腾讯定位组件状态:', tencentLocationEnabled ? '✅ 已启用' : '❌ 未启用');
+                }
+            }
+
+            // 获取当前位置（优先使用腾讯定位）
             const location = await this.locationManager.getCurrentPosition();
             this.currentLocation = location;
 
