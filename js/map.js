@@ -466,7 +466,7 @@ class MapManager {
         // 检查内存缓存
         if (this.addressCache.has(cacheKey)) {
             const cached = this.addressCache.get(cacheKey);
-            if (!Utils.storage.isPositionStale(cached.timestamp, CACHE_CONFIG.addressCacheTime)) {
+            if (!this._isPositionStale(cached.timestamp, CACHE_CONFIG.addressCacheTime)) {
                 if (APP_CONFIG.debug) {
                     console.log('使用缓存的地址:', cached.address);
                 }
