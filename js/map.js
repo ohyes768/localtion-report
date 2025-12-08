@@ -555,52 +555,61 @@ class MapManager {
     // 使用Canvas生成备用截图
     async _generateCanvasScreenshot(location, carInfo) {
         return new Promise((resolve, reject) => {
-            const canvas = document.createElement('canvas');
-            canvas.width = SHARE_CONFIG.screenshotSize.width;
-            canvas.height = SHARE_CONFIG.screenshotSize.height;
-            const ctx = canvas.getContext('2d');
-
             try {
+                const canvas = document.createElement('canvas');
+                canvas.width = SHARE_CONFIG.screenshotSize.width;
+                canvas.height = SHARE_CONFIG.screenshotSize.height;
+                const ctx = canvas.getContext('2d');
+
+                console.log('开始生成Canvas截图...');
+
                 // 绘制背景
                 ctx.fillStyle = '#f0f0f0';
                 ctx.fillRect(0, 0, canvas.width, canvas.height);
 
                 // 绘制标题区域
                 ctx.fillStyle = carInfo.color || '#007AFF';
-                ctx.fillRect(0, 0, canvas.width, 60);
+                ctx.fillRect(0, 0, canvas.width, 80);
 
                 // 绘制标题文字
                 ctx.fillStyle = 'white';
-                ctx.font = 'bold 24px Arial';
+                ctx.font = 'bold 28px Arial';
                 ctx.textAlign = 'center';
-                ctx.fillText(`${carInfo.name} 位置分享`, canvas.width / 2, 40);
+                ctx.fillText(`🚗 ${carInfo.name} 位置分享`, canvas.width / 2, 50);
+
+                // 绘制白色卡片背景
+                ctx.fillStyle = 'white';
+                ctx.fillRect(50, 120, canvas.width - 100, canvas.height - 200);
+                ctx.strokeStyle = '#ddd';
+                ctx.strokeRect(50, 120, canvas.width - 100, canvas.height - 200);
 
                 // 绘制位置信息
                 ctx.fillStyle = '#333';
+                ctx.font = '20px Arial';
+                ctx.textAlign = 'left';
+                ctx.fillText(`车牌: ${carInfo.plate}`, 80, 170);
+
                 ctx.font = '16px Arial';
-                ctx.fillText(`车牌: ${carInfo.plate}`, canvas.width / 2, 100);
-                ctx.fillText(`位置: ${location.lat.toFixed(6)}, ${location.lng.toFixed(6)}`, canvas.width / 2, 130);
+                ctx.fillStyle = '#666';
+                const locationText = `位置: ${location.lat.toFixed(6)}, ${location.lng.toFixed(6)}`;
+                ctx.fillText(locationText, 80, 210);
 
                 // 绘制时间
-                ctx.fillStyle = '#666';
-                ctx.font = '14px Arial';
-                const time = Utils.formatTime();
-                ctx.fillText(`更新时间: ${time}`, canvas.width / 2, 160);
-
-                // 绘制车辆图标
-                ctx.font = '48px Arial';
-                ctx.fillText('🚗', canvas.width / 2, 250);
-
-                // 绘制底部的提示文字
                 ctx.fillStyle = '#999';
-                ctx.font = '12px Arial';
-                ctx.fillText('扫描二维码查看实时位置', canvas.width / 2, 350);
+                const time = Utils.formatTime();
+                ctx.fillText(`更新时间: ${time}`, 80, 240);
+
+                // 绘制精度信息
+                const accuracy = location.accuracy ? Math.round(location.accuracy) : '未知';
+                ctx.fillText(`定位精度: ${accuracy}米`, 80, 270);
 
                 // 转换为图片URL
-                const dataUrl = canvas.toDataURL('image/png');
+                const dataUrl = canvas.toDataURL('image/png', 0.9);
+                console.log('Canvas截图生成完成，URL长度:', dataUrl.length);
                 resolve(dataUrl);
 
             } catch (error) {
+                console.error('Canvas截图生成过程出错:', error);
                 reject(new Error('Canvas截图生成失败: ' + error.message));
             }
         });

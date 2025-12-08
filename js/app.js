@@ -360,15 +360,24 @@ class VehicleLocationApp {
             // 设置截图
             const screenshotImage = document.getElementById('screenshot-image');
             if (screenshotImage) {
+                console.log('设置截图URL:', screenshotUrl);
+                console.log('URL类型:', screenshotUrl.substring(0, 50) + '...');
+
                 screenshotImage.src = screenshotUrl;
+                screenshotImage.crossOrigin = 'anonymous';
+
                 screenshotImage.onload = () => {
                     if (APP_CONFIG.debug) {
-                        console.log('分享截图加载完成');
+                        console.log('分享截图加载完成，尺寸:', screenshotImage.naturalWidth, 'x', screenshotImage.naturalHeight);
                     }
                 };
-                screenshotImage.onerror = () => {
-                    console.error('分享截图加载失败');
-                    Utils.showToast('截图生成失败，请重试');
+
+                screenshotImage.onerror = (error) => {
+                    console.error('分享截图加载失败，URL:', screenshotUrl);
+                    console.error('图片加载错误:', error);
+
+                    // 尝试使用备用方案
+                    this._handleScreenshotError(screenshotUrl, screenshotImage);
                 };
             }
 
@@ -701,6 +710,107 @@ class VehicleLocationApp {
 
         if (APP_CONFIG.debug) {
             console.log('应用已重置');
+        }
+    }
+
+    // 处理截图加载错误
+    async _handleScreenshotError(failedUrl, imageElement) {
+        console.log('处理截图加载错误...');
+
+        try {
+            // 如果是腾讯地图API失败，立即尝试Canvas方案
+            if (failedUrl.includes('apis.map.qq.com')) {
+                console.log('腾讯地图API截图失败，尝试Canvas方案...');
+                const canvasUrl = await this.mapManager._generateCanvasScreenshot(
+                    this.currentLocation,
+                    this.currentCar
+                );
+
+                console.log('Canvas截图生成成功，重新设置...');
+                imageElement.src = canvasUrl;
+
+                // 再次尝试加载
+                imageElement.onload = () => {
+                    console.log('Canvas截图加载成功');
+                    Utils.showToast('已生成备用截图');
+                };
+
+                imageElement.onerror = () => {
+                    console.error('Canvas截图也失败了，尝试SVG方案...');
+                    this._trySvgFallback(imageElement);
+                };
+
+            } else {
+                // 尝试SVG备用方案
+                this._trySvgFallback(imageElement);
+            }
+
+        } catch (error) {
+            console.error('备用截图方案也失败了:', error);
+            Utils.showToast('截图生成失败，分享功能暂时不可用');
+        }
+    }
+
+    // 尝试SVG备用方案
+    _trySvgFallback(imageElement) {
+        try {
+            console.log('使用SVG备用方案...');
+            const svgUrl = this.mapManager._generateTextImageScreenshot(
+                this.currentLocation,
+                this.currentCar
+            );
+
+            imageElement.src = svgUrl;
+
+            imageElement.onload = () => {
+                console.log('SVG截图加载成功');
+                Utils.showToast('已生成文本截图');
+            };
+
+            imageElement.onerror = () => {
+                console.error('SVG截图也失败了');
+                this._showTextFallback();
+            };
+
+        } catch (error) {
+            console.error('SVG备用方案失败:', error);
+            this._showTextFallback();
+        }
+    }
+
+    // 显示纯文本备用方案
+    _showTextFallback() {
+        const imageContainer = document.getElementById('screenshot-image');
+        if (imageContainer) {
+            // 隐藏图片，显示文本
+            imageContainer.style.display = 'none';
+
+            // 创建文本信息
+            const textDiv = document.createElement('div');
+            textDiv.id = 'screenshot-text-fallback';
+            textDiv.style.cssText = `
+                padding: 20px;
+                text-align: center;
+                background: linear-gradient(135deg, ${this.currentCar.color} 0%, ${this._darkenColor(this.currentCar.color, 20)} 100%);
+                color: white;
+                border-radius: 10px;
+                margin: 20px;
+                font-family: Arial, sans-serif;
+            `;
+
+            const time = Utils.formatTime();
+            textDiv.innerHTML = `
+                <h2 style="margin: 0 0 15px 0; font-size: 24px;">🚗 ${this.currentCar.name} 位置分享</h2>
+                <p style="margin: 10px 0; font-size: 18px;">车牌: ${this.currentCar.plate}</p>
+                <p style="margin: 10px 0; font-size: 16px;">位置: ${this.currentLocation.lat.toFixed(6)}, ${this.currentLocation.lng.toFixed(6)}</p>
+                <p style="margin: 10px 0; font-size: 14px; opacity: 0.9;">更新时间: ${time}</p>
+                <p style="margin: 20px 0 0 0; font-size: 14px; font-style: italic;">截图功能暂时不可用，请使用文本分享</p>
+            `;
+
+            // 插入到图片后面
+            imageContainer.parentNode.insertBefore(textDiv, imageContainer.nextSibling);
+
+            Utils.showToast('截图功能不可用，已显示文本信息');
         }
     }
 
