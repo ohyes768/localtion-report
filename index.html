@@ -31,6 +31,34 @@
         <div class="map-header">
             <h2 id="location-title">车辆位置</h2>
             <p id="location-address">地址加载中...</p>
+
+            <!-- 经纬度信息显示区域 -->
+            <div id="coordinates-info" class="coordinates-info" style="display: none;">
+                <div class="coordinates-container">
+                    <div class="coordinate-item">
+                        <span class="coordinate-label">📍 经纬度:</span>
+                        <span id="coordinates-display" class="coordinate-value">加载中...</span>
+                        <button id="copy-coordinates-btn" class="copy-btn" title="复制经纬度">
+                            <span class="icon">📋</span>
+                        </button>
+                    </div>
+                    <div class="coordinate-details">
+                        <div class="detail-item">
+                            <span class="detail-label">精度:</span>
+                            <span id="accuracy-display" class="detail-value">-</span>
+                        </div>
+                        <div class="detail-item">
+                            <span class="detail-label">来源:</span>
+                            <span id="provider-display" class="detail-value">-</span>
+                        </div>
+                        <div class="detail-item">
+                            <span class="detail-label">时间:</span>
+                            <span id="time-display" class="detail-value">-</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <div id="location-analysis" class="location-analysis" style="display: none;"></div>
         </div>
         <div id="map-container"></div>

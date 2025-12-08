@@ -171,6 +171,14 @@ class VehicleLocationApp {
             });
         }
 
+        // 复制经纬度按钮
+        const copyCoordinatesBtn = document.getElementById('copy-coordinates-btn');
+        if (copyCoordinatesBtn) {
+            copyCoordinatesBtn.addEventListener('click', () => {
+                this.copyCoordinates();
+            });
+        }
+
         // 保存图片按钮
         const saveImageBtn = document.getElementById('save-image-btn');
         if (saveImageBtn) {
@@ -279,6 +287,9 @@ class VehicleLocationApp {
             if (APP_CONFIG.debug) {
                 console.log('车辆标记添加完成');
             }
+
+            // 更新经纬度信息显示
+            this.updateCoordinatesDisplay(this.currentLocation);
 
             // 然后更新地址信息
             const address = await this.getAddress();
@@ -471,6 +482,46 @@ class VehicleLocationApp {
         }
     }
 
+    // 复制经纬度信息
+    async copyCoordinates() {
+        try {
+            if (!this.currentLocation) {
+                Utils.showToast('暂无经纬度信息');
+                return;
+            }
+
+            const lat = this.currentLocation.lat.toFixed(6);
+            const lng = this.currentLocation.lng.toFixed(6);
+            const accuracy = this.currentLocation.accuracy ? Math.round(this.currentLocation.accuracy) : '未知';
+            const time = Utils.formatTime(new Date(this.currentLocation.timestamp || Date.now()));
+
+            // 构建经纬度信息文本
+            const coordinatesText = `${this.currentCar.name} 位置信息
+
+📍 经纬度: ${lat}, ${lng}
+🎯 精度: ${accuracy}米
+🕐 定位时间: ${time}
+🚗 车牌号: ${this.currentCar.plate}
+
+---
+由车辆位置分享系统生成`;
+
+            const success = await Utils.copyToClipboard(coordinatesText);
+
+            if (success) {
+                Utils.showToast('✅ 经纬度信息已复制到剪贴板');
+            } else {
+                // 降级方案：显示文本供手动复制
+                this.showTextForManualCopy(coordinatesText);
+                Utils.showToast('请手动复制经纬度信息');
+            }
+
+        } catch (error) {
+            Utils.logError(error, { type: 'copy_coordinates' });
+            Utils.showToast('复制经纬度失败，请手动复制');
+        }
+    }
+
     // 显示手动复制文本
     showTextForManualCopy(text) {
         const modal = document.getElementById('error-modal');
@@ -537,6 +588,68 @@ class VehicleLocationApp {
         // 更新位置分析（如果启用）
         if (APP_CONFIG.analysis.enableLocationAnalysis && this.currentLocation) {
             this.updateLocationAnalysis(address);
+        }
+    }
+
+    // 更新经纬度信息显示
+    updateCoordinatesDisplay(location) {
+        if (!location) {
+            return;
+        }
+
+        try {
+            // 显示经纬度信息容器
+            const coordinatesInfo = document.getElementById('coordinates-info');
+            if (coordinatesInfo) {
+                coordinatesInfo.style.display = 'block';
+            }
+
+            // 更新经纬度显示
+            const coordinatesDisplay = document.getElementById('coordinates-display');
+            if (coordinatesDisplay) {
+                const lat = location.lat.toFixed(6);
+                const lng = location.lng.toFixed(6);
+                coordinatesDisplay.textContent = `${lat}, ${lng}`;
+            }
+
+            // 更新精度信息
+            const accuracyDisplay = document.getElementById('accuracy-display');
+            if (accuracyDisplay) {
+                const accuracy = location.accuracy ? Math.round(location.accuracy) : '未知';
+                accuracyDisplay.textContent = `${accuracy}米`;
+            }
+
+            // 更新定位来源
+            const providerDisplay = document.getElementById('provider-display');
+            if (providerDisplay) {
+                let provider = '浏览器定位';
+                if (location.provider === 'tencent') {
+                    provider = '腾讯定位';
+                } else if (location.browserStrategy) {
+                    provider = location.browserStrategy;
+                } else if (location.browserOptimized) {
+                    provider = '浏览器优化';
+                }
+                providerDisplay.textContent = provider;
+            }
+
+            // 更新定位时间
+            const timeDisplay = document.getElementById('time-display');
+            if (timeDisplay) {
+                const time = new Date(location.timestamp || Date.now());
+                timeDisplay.textContent = Utils.formatTime(time);
+            }
+
+            if (APP_CONFIG.debug) {
+                console.log('✅ 经纬度信息更新完成:', {
+                    coordinates: `${location.lat.toFixed(6)}, ${location.lng.toFixed(6)}`,
+                    accuracy: location.accuracy,
+                    provider: providerDisplay.textContent
+                });
+            }
+
+        } catch (error) {
+            console.error('更新经纬度显示失败:', error);
         }
     }
 
