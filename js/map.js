@@ -148,24 +148,27 @@ class MapManager {
             // 使用DOMOverlay作为主要方案
             const div = document.createElement('div');
             div.style.cssText = `
-                width: 50px;
-                height: 50px;
-                background: ${carInfo.color || '#007AFF'};
-                border-radius: 50%;
-                border: 3px solid white;
-                box-shadow: 0 2px 8px rgba(0,0,0,0.3), 0 0 20px rgba(0,0,0,0.2);
-                display: flex;
-                flex-direction: column;
-                align-items: center;
-                justify-content: center;
-                color: white;
-                font-size: 20px;
-                font-weight: bold;
-                position: relative;
-                z-index: 1000;
-                cursor: pointer;
-                user-select: none;
-                transition: transform 0.2s ease;
+                width: 50px !important;
+                height: 50px !important;
+                background: ${carInfo.color || '#007AFF'} !important;
+                border-radius: 50% !important;
+                border: 3px solid white !important;
+                box-shadow: 0 2px 8px rgba(0,0,0,0.3), 0 0 20px rgba(0,0,0,0.2) !important;
+                display: flex !important;
+                flex-direction: column !important;
+                align-items: center !important;
+                justify-content: center !important;
+                color: white !important;
+                font-size: 20px !important;
+                font-weight: bold !important;
+                position: absolute !important;
+                z-index: 10000 !important;
+                cursor: pointer !important;
+                user-select: none !important;
+                transition: transform 0.2s ease !important;
+                pointer-events: auto !important;
+                opacity: 1 !important;
+                visibility: visible !important;
             `;
             div.innerHTML = `
                 <div style="font-size: 24px;">🚗</div>
@@ -187,7 +190,9 @@ class MapManager {
                     map: this.map,
                     position: new TMap.LatLng(location.lat, location.lng),
                     content: div,
-                    zIndex: 1000
+                    zIndex: 10000,
+                    altitude: 0,
+                    visible: true
                 });
 
                 this.marker = marker;
@@ -198,10 +203,27 @@ class MapManager {
                     console.log('检查标记是否可见...');
                     if (marker.dom && marker.dom.parentNode) {
                         console.log('标记DOM已添加到页面');
+                        console.log('标记DOM元素:', marker.dom);
+                        console.log('标记元素样式:', window.getComputedStyle(marker.dom));
+                        console.log('标记元素位置:', marker.dom.getBoundingClientRect());
+                        console.log('标记元素可见性:', marker.dom.style.visibility);
+                        console.log('标记元素显示:', marker.dom.style.display);
+                        console.log('标记元素z-index:', marker.dom.style.zIndex);
                     } else {
                         console.warn('标记DOM可能未正确显示');
+                        console.log('marker.dom:', marker.dom);
+                        console.log('marker对象:', marker);
                     }
                 }, 1000);
+
+                // 强制重绘地图以确保标记可见
+                setTimeout(() => {
+                    if (this.map) {
+                        console.log('触发地图重绘...');
+                        this.map.panTo(this.map.getCenter());
+                        this.map.setZoom(this.map.getZoom());
+                    }
+                }, 2000);
 
             } else {
                 console.log('TMap.DOMOverlay不可用，使用备用方案');
