@@ -66,12 +66,32 @@
 
             try {
                 log('创建基础标记...');
-                const marker = new TMap.Marker({
-                    map: map,
-                    position: new TMap.LatLng(39.908692, 116.397477)
-                });
-                markers.push(marker);
-                log('基础标记创建成功', 'success');
+                log('注意：TMap.Marker在GL版本中不可用，使用DOMOverlay替代');
+
+                // 创建简单的DOM标记
+                const div = document.createElement('div');
+                div.style.cssText = `
+                    width: 30px;
+                    height: 30px;
+                    background: #FF6B6B;
+                    border-radius: 50%;
+                    border: 2px solid white;
+                    box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+                    cursor: pointer;
+                    transform: translate(-50%, -100%);
+                `;
+
+                if (typeof TMap.DOMOverlay === 'function') {
+                    const marker = new TMap.DOMOverlay({
+                        map: map,
+                        position: new TMap.LatLng(39.908692, 116.397477),
+                        content: div
+                    });
+                    markers.push(marker);
+                    log('基础标记创建成功（使用DOMOverlay）', 'success');
+                } else {
+                    log('TMap.DOMOverlay不可用', 'error');
+                }
             } catch (error) {
                 log(`基础标记创建失败: ${error.message}`, 'error');
             }
@@ -85,21 +105,32 @@
 
             try {
                 log('创建自定义样式标记...');
-                const marker = new TMap.Marker({
-                    map: map,
-                    position: new TMap.LatLng(39.908692, 116.397477),
-                    styles: {
-                        'customStyle': new TMap.MarkerStyle({
-                            width: 35,
-                            height: 35,
-                            anchor: { x: 17, y: 35 },
-                            src: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAADLElEQVR42u2Xz2tTURTGf7PdvNPn2tlmrpdGqRVMocZllncmxso5FYUQwhhGEQ0obJkyICwKW1SCEgKNCIPYoYI6YhoKNYYGMjAkaKg6ioBiwiG7KMKwVjzZz3s/7Od9JhOkwz58Z9w9537md9e7u8FAwIJkQSi7SQIKAQBSJBRObJgUJk8a9k+7Pc6YS5EYQAUZRi4niFM4e2bp0fYQBSXE5nOMcE/4SwxZ3yARdEoDAAlMqXAJ4uWcJ/UPeM5T4DQgBMSYmg4PyLflxgK4VjGfMGHOAG3vIqW0mClqvhKBC9mwdC3ySR78O4t6rT0f8QYw+JTqGsUS9UAYF0BCQQoLUh6OqFFGwNyKIaOWqMVcJDMPUeKcnDAkEW9NIaVpDE8EOxLCiNqyk8TQyqU8jQy8hNQVgDIgrVZCmEDiJCCVCaPCm1tM+EPEIciYLpxO5/FDEIBSLGhAlGAQ5iCTgVd3fQcPhkYJ/2pKlgWR5cLlku1krl8+5/5NP1X2l+QFf2L2H1U5P0b0vQcxZj/xM93z1Z0rpYFW6vHk0e3X5jFS4HgQWGPq6sK+ve7/tCpjvSLcvGO32egtxMZxQLFk1vlEzJ/p4eVqf6vWJtbvWl4W6vHjwy3XJxsuXxlbFwly1vlm9yOF97WHc5O91+59slzZZ+XlrJ6nuBod5sF92vJZi2e5FbF5/vGQ9n9/JbGOH3bLOV57E6v9TTRX1kby6P/VrrN74v6LHY73Kb/2cs7feivUd9/g6v9/kDNL71vmVKyPknlP1xFRfy5/lyT5c9cVrz9f67ps1Jj2+1yTNcn6zl6P9Nhi09OyOfGQr5F5tiT7+WJ78N7Zh8JrNg8OaX283FZi89aZT9f2Jrc+Y/RuX/8eQ/n8vz/V/Wlly+ny7pnw+yLz8z4xfJyvJ+uV2v15nh+3ySu35TmxDlV5z+fQtfO7zlXmJ28/jJbHRrKzZj8/sTX7vNivfP2TScv95bH6vlzev87NnP+N3r6sX23Bov59bP7/s6Z9P9FlvneP/Fklz+9rs9fZ8f276j2fmTvl9bvN7YcL57Nfnmv+33JT0/RtVL0/G5nvR/uuU//v6dL//zGSf//qsT//3v3//gDp34wAAAAASUVORK5CYII='
-                        })
-                    },
-                    styleId: 'customStyle'
-                });
-                markers.push(marker);
-                log('自定义标记创建成功', 'success');
+                log('注意：TMap.Marker在GL版本中不可用，使用DOMOverlay替代');
+
+                // 创建自定义样式的DOM标记
+                const div = document.createElement('div');
+                div.style.cssText = `
+                    width: 35px;
+                    height: 35px;
+                    background-image: url('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAADLElEQVR42u2Xz2tTURTGf7PdvNPn2tlmrpdGqRVMocZllncmxso5FYUQwhhGEQ0obJkyICwKW1SCEgKNCIPYoYI6YhoKNYYGMjAkaKg6ioBiwiG7KMKwVjzZz3s/7Od9JhOkwz58Z9w9537md9e7u8FAwIJkQSi7SQIKAQBSJBRObJgUJk8a9k+7Pc6YS5EYQAUZRi4niFM4e2bp0fYQBSXE5nOMcE/4SwxZ3yARdEoDAAlMqXAJ4uWcJ/UPeM5T4DQgBMSYmg4PyLflxgK4VjGfMGHOAG3vIqW0mClqvhKBC9mwdC3ySR78O4t6rT0f8QYw+JTqGsUS9UAYF0BCQQoLUh6OqFFGwNyKIaOWqMVcJDMPUeKcnDAkEW9NIaVpDE8EOxLCiNqyk8TQyqU8jQy8hNQVgDIgrVZCmEDiJCCVCaPCm1tM+EPEIciYLpxO5/FDEIBSLGhAlGAQ5iCTgVd3fQcPhkYJ/2pKlgWR5cLlku1krl8+5/5NP1X2l+QFf2L2H1U5P0b0vQcxZj/xM93z1Z0rpYFW6vHk0e3X5jFS4HgQWGPq6sK+ve7/tCpjvSLcvGO32egtxMZxQLFk1vlEzJ/p4eVqf6vWJtbvWl4W6vHjwy3XJxsuXxlbFwly1vlm9yOF97WHc5O91+59slzZZ+XlrJ6nuBod5sF92vJZi2e5FbF5/vGQ9n9/JbGOH3bLOV57E6v9TTRX1kby6P/VrrN74v6LHY73Kb/2cs7feivUd9/g6v9/kDNL71vmVKyPknlP1xFRfy5/lyT5c9cVrz9f67ps1Jj2+1yTNcn6zl6P9Nhi09OyOfGQr5F5tiT7+WJ78N7Zh8JrNg8OaX283FZi89aZT9f2Jrc+Y/RuX/8eQ/n8vz/V/Wlly+ny7pnw+yLz8z4xfJyvJ+uV2v15nh+3ySu35TmxDlV5z+fQtfO7zlXmJ28/jJbHRrKzZj8/sTX7vNivfP2TScv95bH6vlzev87NnP+N3r6sX23Bov59bP7/s6Z9P9FlvneP/Fklz+9rs9fZ8f276j2fmTvl9bvN7YcL57Nfnmv+33JT0/RtVL0/G5nvR/uuU//v6dL//zGSf//qsT//3v3//gDp34wAAAAASUVORK5CYII=');
+                    background-size: contain;
+                    background-repeat: no-repeat;
+                    background-position: center;
+                    cursor: pointer;
+                    transform: translate(-50%, -100%);
+                `;
+
+                if (typeof TMap.DOMOverlay === 'function') {
+                    const marker = new TMap.DOMOverlay({
+                        map: map,
+                        position: new TMap.LatLng(39.908692, 116.397477),
+                        content: div
+                    });
+                    markers.push(marker);
+                    log('自定义标记创建成功（使用DOMOverlay）', 'success');
+                } else {
+                    log('TMap.DOMOverlay不可用', 'error');
+                }
             } catch (error) {
                 log(`自定义标记创建失败: ${error.message}`, 'error');
                 console.error('详细错误:', error);
@@ -141,21 +172,30 @@
 
                 log('Canvas图标创建成功，尝试添加到地图...');
 
-                const marker = new TMap.Marker({
-                    map: map,
-                    position: new TMap.LatLng(39.908692, 116.397477),
-                    styles: {
-                        'canvasMarker': new TMap.MarkerStyle({
-                            width: 35,
-                            height: 35,
-                            anchor: { x: 17, y: 35 },
-                            src: canvas.toDataURL()
-                        })
-                    },
-                    styleId: 'canvasMarker'
-                });
-                markers.push(marker);
-                log('Canvas标记创建成功', 'success');
+                // 创建包含Canvas图像的DOM元素
+                const div = document.createElement('div');
+                div.style.cssText = `
+                    width: 35px;
+                    height: 35px;
+                    background-image: url('${canvas.toDataURL()}');
+                    background-size: contain;
+                    background-repeat: no-repeat;
+                    background-position: center;
+                    cursor: pointer;
+                    transform: translate(-50%, -100%);
+                `;
+
+                if (typeof TMap.DOMOverlay === 'function') {
+                    const marker = new TMap.DOMOverlay({
+                        map: map,
+                        position: new TMap.LatLng(39.908692, 116.397477),
+                        content: div
+                    });
+                    markers.push(marker);
+                    log('Canvas标记创建成功（使用DOMOverlay）', 'success');
+                } else {
+                    log('TMap.DOMOverlay不可用', 'error');
+                }
             } catch (error) {
                 log(`Canvas标记创建失败: ${error.message}`, 'error');
                 console.error('详细错误:', error);
@@ -178,69 +218,116 @@
                 log(`创建车辆标记: ${carInfo.name}...`);
                 log(`车辆信息: ${JSON.stringify(carInfo)}`);
 
-                const canvas = document.createElement('canvas');
-                canvas.width = 70;
-                canvas.height = 70;
-                const ctx = canvas.getContext('2d');
+                // 使用DOMOverlay创建标记（与主应用一致）
+                const div = document.createElement('div');
+                div.style.cssText = `
+                    width: 50px;
+                    height: 50px;
+                    background: ${carInfo.color || '#007AFF'};
+                    border-radius: 50%;
+                    border: 3px solid white;
+                    box-shadow: 0 2px 8px rgba(0,0,0,0.3), 0 0 20px rgba(0,0,0,0.2);
+                    display: flex;
+                    flex-direction: column;
+                    align-items: center;
+                    justify-content: center;
+                    color: white;
+                    font-size: 20px;
+                    font-weight: bold;
+                    position: relative;
+                    z-index: 1000;
+                    cursor: pointer;
+                    user-select: none;
+                    transition: transform 0.2s ease;
+                `;
+                div.innerHTML = `
+                    <div style="font-size: 24px;">🚗</div>
+                    <div style="font-size: 8px; margin-top: -5px;">${carInfo.name.substring(0, 2)}</div>
+                `;
+                div.title = `${carInfo.name} (${carInfo.plate})`;
 
-                log('Canvas元素创建成功');
+                // 添加悬停效果
+                div.onmouseover = function() {
+                    this.style.transform = 'scale(1.1)';
+                };
+                div.onmouseout = function() {
+                    this.style.transform = 'scale(1)';
+                };
 
-                // 绘制圆形背景
-                ctx.beginPath();
-                ctx.arc(35, 35, 30, 0, 2 * Math.PI);
-                ctx.fillStyle = carInfo.color;
-                ctx.fill();
-
-                // 绘制边框
-                ctx.beginPath();
-                ctx.arc(35, 35, 30, 0, 2 * Math.PI);
-                ctx.strokeStyle = 'white';
-                ctx.lineWidth = 3;
-                ctx.stroke();
-
-                // 绘制车辆图标
-                ctx.fillStyle = 'white';
-                ctx.font = 'bold 20px Arial';
-                ctx.textAlign = 'center';
-                ctx.textBaseline = 'middle';
-                ctx.fillText('🚗', 35, 30);
-
-                // 绘制车辆名称缩写
-                ctx.font = '10px Arial';
-                ctx.fillText(carInfo.name.substring(0, 2), 35, 48);
-
-                log('Canvas图标绘制成功');
-
-                const marker = new TMap.Marker({
-                    map: map,
-                    position: new TMap.LatLng(39.908692, 116.397477),
-                    styles: {
-                        'carMarker': new TMap.MarkerStyle({
-                            width: 35,
-                            height: 35,
-                            anchor: { x: 17, y: 35 },
-                            src: canvas.toDataURL(),
-                            color: carInfo.color
-                        })
-                    },
-                    styleId: 'carMarker',
-                    zIndex: 1000
-                });
-                markers.push(marker);
-                log('车辆标记创建成功', 'success');
-
-                // 添加点击事件
-                if (typeof marker.on === 'function') {
-                    marker.on('click', () => {
-                        log(`点击了车辆标记: ${carInfo.name} (${carInfo.plate})`, 'success');
+                if (typeof TMap.DOMOverlay === 'function') {
+                    log('使用TMap.DOMOverlay创建标记...');
+                    const marker = new TMap.DOMOverlay({
+                        map: map,
+                        position: new TMap.LatLng(39.908692, 116.397477),
+                        content: div
                     });
+
+                    markers.push(marker);
+                    log('车辆标记创建成功（使用DOMOverlay）', 'success');
+
+                    // 添加点击事件
+                    div.onclick = function() {
+                        log(`点击了车辆标记: ${carInfo.name} (${carInfo.plate})`, 'success');
+                    };
                 } else {
-                    log('标记不支持点击事件', 'info');
+                    log('TMap.DOMOverlay不可用，尝试备用方案', 'error');
+                    // 备用方案：直接在地图上创建一个简单的div
+                    testSimpleDOMMarker(carInfo);
                 }
 
             } catch (error) {
                 log(`车辆标记创建失败: ${error.message}`, 'error');
                 console.error('详细错误:', error);
+                // 尝试最简单的方案
+                testSimpleDOMMarker(carInfo);
+            }
+        }
+
+        function testSimpleDOMMarker(carInfo) {
+            try {
+                log('尝试使用简单DOM标记...');
+
+                // 创建一个绝对定位的div作为标记
+                const markerDiv = document.createElement('div');
+                markerDiv.id = 'simple-marker-' + Date.now();
+                markerDiv.style.cssText = `
+                    position: absolute;
+                    width: 50px;
+                    height: 50px;
+                    background: ${carInfo.color || '#007AFF'};
+                    border-radius: 50%;
+                    border: 3px solid white;
+                    box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    color: white;
+                    font-size: 24px;
+                    z-index: 1000;
+                    cursor: pointer;
+                    transform: translate(-50%, -50%);
+                    left: 50%;
+                    top: 50%;
+                `;
+                markerDiv.innerHTML = '🚗';
+                markerDiv.title = `${carInfo.name} (${carInfo.plate})`;
+
+                // 添加到地图容器
+                const mapContainer = document.getElementById('map');
+                if (mapContainer) {
+                    mapContainer.style.position = 'relative';
+                    mapContainer.appendChild(markerDiv);
+                    markers.push({ element: markerDiv, type: 'dom' });
+                    log('简单DOM标记创建成功', 'success');
+
+                    markerDiv.onclick = function() {
+                        log(`点击了简单DOM标记: ${carInfo.name} (${carInfo.plate})`, 'success');
+                    };
+                } else {
+                    log('找不到地图容器', 'error');
+                }
+            } catch (error) {
+                log(`简单DOM标记创建失败: ${error.message}`, 'error');
             }
         }
 
@@ -248,7 +335,15 @@
             log('清除所有标记...');
             markers.forEach(marker => {
                 try {
-                    marker.setMap(null);
+                    if (marker.type === 'dom' && marker.element) {
+                        // 清除DOM标记
+                        if (marker.element.parentNode) {
+                            marker.element.parentNode.removeChild(marker.element);
+                        }
+                    } else if (marker.setMap) {
+                        // 清除TMap标记
+                        marker.setMap(null);
+                    }
                 } catch (error) {
                     log(`清除标记失败: ${error.message}`, 'error');
                 }
