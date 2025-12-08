@@ -112,12 +112,13 @@ class MapManager {
 
         try {
             // 移除旧标记
-            if (this.marker) {
+            this._removeDirectMarker();
+            if (this.marker && this.marker.setMap) {
                 this.marker.setMap(null);
             }
 
             // 由于TMap.Marker在GL版本中不可用，直接使用备用方法
-            console.log('使用DOMOverlay创建标记...');
+            console.log('使用直接标记方案...');
             this.createSimpleMarker(location, carInfo);
 
         } catch (error) {
@@ -142,102 +143,119 @@ class MapManager {
     // 创建简单标记（主要方法）
     createSimpleMarker(location, carInfo) {
         try {
-            console.log('创建DOMOverlay标记...', carInfo);
+            console.log('创建备用标记方案...', carInfo);
             console.log('位置信息:', location);
 
-            // 使用DOMOverlay作为主要方案
-            const div = document.createElement('div');
-            div.style.cssText = `
-                width: 50px !important;
-                height: 50px !important;
-                background: ${carInfo.color || '#007AFF'} !important;
-                border-radius: 50% !important;
-                border: 3px solid white !important;
-                box-shadow: 0 2px 8px rgba(0,0,0,0.3), 0 0 20px rgba(0,0,0,0.2) !important;
-                display: flex !important;
-                flex-direction: column !important;
-                align-items: center !important;
-                justify-content: center !important;
-                color: white !important;
-                font-size: 20px !important;
-                font-weight: bold !important;
-                position: absolute !important;
-                z-index: 10000 !important;
-                cursor: pointer !important;
-                user-select: none !important;
-                transition: transform 0.2s ease !important;
-                pointer-events: auto !important;
-                opacity: 1 !important;
-                visibility: visible !important;
-            `;
-            div.innerHTML = `
-                <div style="font-size: 24px;">🚗</div>
-                <div style="font-size: 8px; margin-top: -5px;">${carInfo.name.substring(0, 2)}</div>
-            `;
-            div.title = `${carInfo.name} (${carInfo.plate})`;
-
-            // 添加悬停效果
-            div.onmouseover = function() {
-                this.style.transform = 'scale(1.1)';
-            };
-            div.onmouseout = function() {
-                this.style.transform = 'scale(1)';
-            };
-
-            if (typeof TMap.DOMOverlay === 'function') {
-                console.log('TMap.DOMOverlay可用，创建标记...');
-                const marker = new TMap.DOMOverlay({
-                    map: this.map,
-                    position: new TMap.LatLng(location.lat, location.lng),
-                    content: div,
-                    zIndex: 10000,
-                    altitude: 0,
-                    visible: true
-                });
-
-                this.marker = marker;
-                console.log('DOMOverlay标记创建成功:', marker);
-
-                // 确保标记可见
-                setTimeout(() => {
-                    console.log('检查标记是否可见...');
-                    if (marker.dom && marker.dom.parentNode) {
-                        console.log('标记DOM已添加到页面');
-                        console.log('标记DOM元素:', marker.dom);
-                        console.log('标记元素样式:', window.getComputedStyle(marker.dom));
-                        console.log('标记元素位置:', marker.dom.getBoundingClientRect());
-                        console.log('标记元素可见性:', marker.dom.style.visibility);
-                        console.log('标记元素显示:', marker.dom.style.display);
-                        console.log('标记元素z-index:', marker.dom.style.zIndex);
-                    } else {
-                        console.warn('标记DOM可能未正确显示');
-                        console.log('marker.dom:', marker.dom);
-                        console.log('marker对象:', marker);
-                    }
-                }, 1000);
-
-                // 强制重绘地图以确保标记可见
-                setTimeout(() => {
-                    if (this.map) {
-                        console.log('触发地图重绘...');
-                        this.map.panTo(this.map.getCenter());
-                        this.map.setZoom(this.map.getZoom());
-                    }
-                }, 2000);
-
-            } else {
-                console.log('TMap.DOMOverlay不可用，使用备用方案');
-                // 最后的备用方案：直接在地图中心显示信息
-                this.setCenter(location);
-                this.showCenterInfo(carInfo, location);
-            }
+            // 直接使用备用方案：在地图中心显示车辆标记
+            this._createDirectMarker(location, carInfo);
 
         } catch (error) {
-            console.error('DOMOverlay标记创建失败:', error);
+            console.error('标记创建失败:', error);
             console.error('错误详情:', error.stack);
             // 最后的备用方案
             this.setCenter(location);
             this.showCenterInfo(carInfo, location);
+        }
+    }
+
+    // 直接在地图容器中创建标记
+    _createDirectMarker(location, carInfo) {
+        // 先确保地图中心定位正确
+        this.setCenter(location);
+
+        // 获取地图容器
+        const mapContainer = document.getElementById('map-container');
+        if (!mapContainer) {
+            console.error('找不到地图容器');
+            return;
+        }
+
+        // 移除旧标记
+        this._removeDirectMarker();
+
+        // 创建标记元素
+        const markerDiv = document.createElement('div');
+        markerDiv.id = 'vehicle-marker';
+        markerDiv.style.cssText = `
+            position: absolute !important;
+            width: 60px !important;
+            height: 60px !important;
+            background: ${carInfo.color || '#007AFF'} !important;
+            border-radius: 50% !important;
+            border: 4px solid white !important;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.4), 0 0 24px rgba(0,0,0,0.3) !important;
+            display: flex !important;
+            flex-direction: column !important;
+            align-items: center !important;
+            justify-content: center !important;
+            color: white !important;
+            font-size: 20px !important;
+            font-weight: bold !important;
+            z-index: 10000 !important;
+            cursor: pointer !important;
+            user-select: none !important;
+            transition: all 0.3s ease !important;
+            left: 50% !important;
+            top: 50% !important;
+            transform: translate(-50%, -50%) !important;
+            pointer-events: auto !important;
+            opacity: 1 !important;
+            visibility: visible !important;
+            font-family: Arial, sans-serif !important;
+            text-align: center !important;
+            line-height: 1.2 !important;
+        `;
+
+        // 添加车辆图标和名称
+        markerDiv.innerHTML = `
+            <div style="font-size: 28px; margin-bottom: 2px;">🚗</div>
+            <div style="font-size: 10px; font-weight: bold; text-shadow: 1px 1px 2px rgba(0,0,0,0.5);">
+                ${carInfo.name.substring(0, 2)}
+            </div>
+        `;
+
+        // 添加提示信息
+        markerDiv.title = `${carInfo.name} (${carInfo.plate})\n位置: ${location.lat.toFixed(6)}, ${location.lng.toFixed(6)}`;
+
+        // 添加点击事件
+        markerDiv.onclick = () => {
+            alert(`${carInfo.name}\n车牌: ${carInfo.plate}\n位置: ${location.lat.toFixed(6)}, ${location.lng.toFixed(6)}`);
+        };
+
+        // 添加悬停效果
+        markerDiv.onmouseover = () => {
+            markerDiv.style.transform = 'translate(-50%, -50%) scale(1.1)';
+            markerDiv.style.boxShadow = '0 6px 20px rgba(0,0,0,0.5), 0 0 32px rgba(0,0,0,0.4) !important';
+        };
+
+        markerDiv.onmouseout = () => {
+            markerDiv.style.transform = 'translate(-50%, -50%) scale(1)';
+            markerDiv.style.boxShadow = '0 4px 12px rgba(0,0,0,0.4), 0 0 24px rgba(0,0,0,0.3) !important';
+        };
+
+        // 添加到地图容器
+        mapContainer.style.position = 'relative';
+        mapContainer.appendChild(markerDiv);
+
+        // 保存标记引用
+        this.marker = { element: markerDiv, type: 'direct' };
+
+        console.log('直接标记创建成功:', markerDiv);
+        console.log('标记已添加到地图中心');
+
+        // 添加动画效果
+        setTimeout(() => {
+            markerDiv.style.animation = 'markerBounce 0.6s ease-out';
+        }, 100);
+    }
+
+    // 移除直接创建的标记
+    _removeDirectMarker() {
+        if (this.marker && this.marker.element && this.marker.type === 'direct') {
+            if (this.marker.element.parentNode) {
+                this.marker.element.parentNode.removeChild(this.marker.element);
+            }
+            this.marker = null;
         }
     }
 
@@ -780,10 +798,34 @@ const customMarkerStyles = `
 </style>
 `;
 
+// 添加标记动画样式
+const markerAnimation = `
+<style>
+@keyframes markerBounce {
+    0% {
+        transform: translate(-50%, -50%) scale(0);
+        opacity: 0;
+    }
+    50% {
+        transform: translate(-50%, -50%) scale(1.2);
+        opacity: 0.8;
+    }
+    80% {
+        transform: translate(-50%, -50%) scale(0.9);
+        opacity: 1;
+    }
+    100% {
+        transform: translate(-50%, -50%) scale(1);
+        opacity: 1;
+    }
+}
+</style>
+`;
+
 // 将样式添加到页面
 if (!document.getElementById('map-styles')) {
     const styleElement = document.createElement('div');
     styleElement.id = 'map-styles';
-    styleElement.innerHTML = customMarkerStyles;
+    styleElement.innerHTML = customMarkerStyles + markerAnimation;
     document.body.appendChild(styleElement);
 }
