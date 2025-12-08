@@ -550,119 +550,33 @@ class MapManager {
         return dataUrl;
     }
 
-    // 加载图片元素（通过代理服务获取base64）
+    // 加载图片元素（直接加载，利用腾讯地图的CORS支持）
     async _loadImageElement(url) {
-        try {
-            // 使用公共CORS代理服务
-            // 注意：在生产环境中，应该使用自己的代理服务
-            const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`;
-
-            // 也可以尝试其他代理服务作为备选
-            // const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(url)}`;
-            // const proxyUrl = `https://cors-anywhere.herokuapp.com/${url}`;
-
-            console.log('通过代理获取图片:', proxyUrl);
-
-            // 1. 通过代理获取图片数据
-            const response = await fetch(proxyUrl, {
-                method: 'GET',
-                headers: {
-                    'Accept': 'image/*'
-                }
-            });
-
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
-
-            // 2. 转换为blob
-            const blob = await response.blob();
-
-            // 3. 转换为base64
-            const base64 = await this._blobToBase64(blob);
-
-            // 4. 创建图片元素
-            const img = new Image();
-
-            // 使用Promise包装
-            return new Promise((resolve, reject) => {
-                const timeout = setTimeout(() => {
-                    reject(new Error('图片加载超时'));
-                }, 10000);
-
-                img.onload = () => {
-                    clearTimeout(timeout);
-                    console.log('✅ 图片加载成功');
-                    resolve(img);
-                };
-
-                img.onerror = (e) => {
-                    clearTimeout(timeout);
-                    console.error('图片加载失败:', e);
-                    reject(new Error('图片加载失败'));
-                };
-
-                // 使用base64数据作为源
-                img.src = base64;
-            });
-
-        } catch (error) {
-            console.error('代理方式失败:', error);
-            // 如果代理失败，尝试其他方案
-            return this._loadImageElementFallback(url);
-        }
-    }
-
-    // 将blob转换为base64
-    _blobToBase64(blob) {
         return new Promise((resolve, reject) => {
-            const reader = new FileReader();
-            reader.onload = () => resolve(reader.result);
-            reader.onerror = reject;
-            reader.readAsDataURL(blob);
+            const img = new Image();
+            // 设置跨域属性，腾讯地图API支持CORS
+            img.crossOrigin = 'anonymous';
+
+            const timeout = setTimeout(() => {
+                reject(new Error('图片加载超时'));
+            }, 10000);
+
+            img.onload = () => {
+                clearTimeout(timeout);
+                console.log('✅ 图片加载成功（使用CORS）');
+                resolve(img);
+            };
+
+            img.onerror = (e) => {
+                clearTimeout(timeout);
+                console.error('图片加载失败:', e);
+                reject(new Error('图片加载失败 - 可能是跨域问题'));
+            };
+
+            // 为了避免缓存污染，添加时间戳
+            const separator = url.includes('?') ? '&' : '?';
+            img.src = `${url}${separator}t=${Date.now()}`;
         });
-    }
-
-    // 备用加载方案（尝试多个代理）
-    async _loadImageElementFallback(url) {
-        const proxies = [
-            `https://corsproxy.io/?${encodeURIComponent(url)}`,
-            `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`
-        ];
-
-        for (const proxyUrl of proxies) {
-            try {
-                console.log('尝试备用代理:', proxyUrl);
-
-                const response = await fetch(proxyUrl);
-                if (response.ok) {
-                    const blob = await response.blob();
-                    const base64 = await this._blobToBase64(blob);
-
-                    const img = new Image();
-
-                    return new Promise((resolve, reject) => {
-                        const timeout = setTimeout(() => {
-                            reject(new Error('图片加载超时'));
-                        }, 10000);
-
-                        img.onload = () => {
-                            clearTimeout(timeout);
-                            resolve(img);
-                        };
-
-                        img.onerror = reject;
-                        img.src = base64;
-                    });
-                }
-            } catch (e) {
-                console.warn(`代理 ${proxyUrl} 失败:`, e);
-                continue;
-            }
-        }
-
-        // 所有代理都失败了
-        throw new Error('所有代理服务都无法访问图片');
     }
 
     // 创建HTML分享页面（备用方案）
