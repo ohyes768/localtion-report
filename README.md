@@ -68,28 +68,27 @@ const VEHICLE_CONFIG = {
 - Apache
 - 静态文件CDN
 
-### 使用方法
+### 🚀 快速开始
 
-1. **生成二维码**
-为每辆车生成包含对应carID参数的二维码：
-```
-https://yourdomain.com/?car=car001
-https://yourdomain.com/?car=car002
-```
+1. **访问二维码页面**
+   - 打开：https://ohyes768.github.io/localtion-report/qr-codes.html
+   - 查看所有车辆的二维码
 
-2. **扫码访问**
-使用手机扫描二维码，系统会自动：
-- 识别车辆信息
-- 请求定位权限
-- 获取当前位置
-- 在地图上显示
-- 分析位置信息
+2. **打印和贴车**
+   - 打印二维码页面（Ctrl+P）
+   - 裁剪对应二维码贴到车上
 
-3. **分享位置**
-点击"分享位置"按钮可以：
-- 生成地图截图
-- 复制位置文案
-- 分享到微信群
+3. **扫码使用**
+   - 用手机扫描二维码
+   - 允许定位权限
+   - 查看车辆位置
+   - 分享到微信群
+
+### 📱 车辆链接
+- **雷克萨斯LS200**: https://ohyes768.github.io/localtion-report/?car=car001
+- **零跑T03**: https://ohyes768.github.io/localtion-report/?car=car002
+- **奥迪Q5**: https://ohyes768.github.io/localtion-report/?car=car003
+- **小米SU7**: https://ohyes768.github.io/localtion-report/?car=car004
 
 ## 技术架构
 
