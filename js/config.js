@@ -37,9 +37,11 @@ const MAP_CONFIG = {
 // 应用配置
 const APP_CONFIG = {
     title: '家庭车辆位置分享系统',
-    version: '1.0.0',
+    version: '1.0.0', // 版本号，用于缓存清理
     debug: true, // 开发环境设为true
     locationTimeout: 20000, // 定位超时时间（毫秒）- 增加到20秒
+    // 自动版本号（基于部署时间）
+    buildVersion: new Date().toISOString().slice(0, 10).replace(/-/g, ''), // 格式: 20241208
     mapZoomLevels: {
         default: 16,
         detailed: 18,
