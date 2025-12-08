@@ -551,9 +551,9 @@ class MapManager {
             return dataUrl;
 
         } catch (error) {
-            console.error('生成真实图片失败:', error);
-            // 如果生成失败，返回原地图URL
-            return baseMapUrl;
+            console.error('Canvas生成失败，尝试备用方案:', error);
+            // 如果Canvas生成失败，返回一个包含所有信息的HTML分享页面
+            return this._createHTMLSharePage(baseMapUrl, location, carInfo);
         }
     }
 
@@ -561,7 +561,8 @@ class MapManager {
     async _loadImageElement(url) {
         return new Promise((resolve, reject) => {
             const img = new Image();
-            // 不设置crossOrigin，避免Referer问题
+            // 设置跨域属性，允许Canvas导出
+            img.crossOrigin = 'anonymous';
 
             const timeout = setTimeout(() => {
                 reject(new Error('图片加载超时'));
@@ -574,11 +575,126 @@ class MapManager {
 
             img.onerror = () => {
                 clearTimeout(timeout);
-                reject(new Error('图片加载失败'));
+                reject(new Error('图片加载失败 - 可能是跨域问题'));
             };
 
             img.src = url;
         });
+    }
+
+    // 创建HTML分享页面（备用方案）
+    _createHTMLSharePage(baseMapUrl, location, carInfo) {
+        const htmlContent = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset="UTF-8">
+            <title>📍 车辆位置分享</title>
+            <style>
+                body {
+                    margin: 0;
+                    padding: 20px;
+                    font-family: Arial, sans-serif;
+                    background: #f8f9fa;
+                    display: flex;
+                    justify-content: center;
+                    align-items: center;
+                    min-height: 100vh;
+                }
+                .share-container {
+                    background: white;
+                    border-radius: 10px;
+                    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+                    padding: 20px;
+                    max-width: 600px;
+                    width: 100%;
+                }
+                .title {
+                    text-align: center;
+                    font-size: 18px;
+                    font-weight: bold;
+                    margin-bottom: 20px;
+                    color: #333;
+                }
+                .map-container {
+                    position: relative;
+                    width: 300px;
+                    height: 200px;
+                    margin: 0 auto;
+                    border: 1px solid #ddd;
+                    border-radius: 5px;
+                    overflow: hidden;
+                }
+                .map-image {
+                    width: 100%;
+                    height: 100%;
+                }
+                .vehicle-marker {
+                    position: absolute;
+                    top: 50%;
+                    left: 50%;
+                    transform: translate(-50%, -50%);
+                    width: 24px;
+                    height: 24px;
+                    background: ${carInfo.color || '#FF0000'};
+                    border-radius: 50%;
+                    border: 3px solid white;
+                    box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    color: white;
+                    font-size: 14px;
+                }
+                .info-card {
+                    margin-top: 20px;
+                    padding: 15px;
+                    background: #f8f9fa;
+                    border-radius: 8px;
+                }
+                .info-item {
+                    display: flex;
+                    margin-bottom: 10px;
+                }
+                .info-label {
+                    font-weight: bold;
+                    margin-right: 10px;
+                    color: #666;
+                }
+                .info-value {
+                    color: #333;
+                }
+            </style>
+        </head>
+        <body>
+            <div class="share-container">
+                <div class="title">📍 车辆位置分享</div>
+                <div class="map-container">
+                    <img src="${baseMapUrl}" class="map-image" alt="地图">
+                    <div class="vehicle-marker">🚗</div>
+                </div>
+                <div class="info-card">
+                    <div class="info-item">
+                        <span class="info-label">📍 位置:</span>
+                        <span class="info-value">${location.address || '获取中...'}</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">🚗 车牌:</span>
+                        <span class="info-value">${carInfo.plateNumber || '未知'}</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">⏰ 时间:</span>
+                        <span class="info-value">${new Date().toLocaleString()}</span>
+                    </div>
+                </div>
+            </div>
+        </body>
+        </html>
+        `;
+
+        // 将HTML转换为Data URL
+        const blob = new Blob([htmlContent], { type: 'text/html' });
+        return URL.createObjectURL(blob);
     }
 
     // 绘制车辆标记
