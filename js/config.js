@@ -78,8 +78,8 @@ const API_CONFIG = {
     // 腾讯地图API
     tencentMap: {
         baseUrl: 'https://apis.map.qq.com',
-        geocoder: '/ws/geocoder/v1/',
-        staticMap: '/ws/staticmap/v2/'
+        geocoder: 'https://apis.map.qq.com/ws/geocoder/v1/',
+        staticMap: 'https://apis.map.qq.com/ws/staticmap/v2/'
     },
     // 请求超时时间
     timeout: 8000
