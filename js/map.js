@@ -505,81 +505,164 @@ class MapManager {
   
     // 创建增强版截图（生成包含车辆信息的真实图片）
     async _createEnhancedScreenshot(baseMapUrl, location, carInfo) {
+        console.log('🎨 生成真实图片，包含车辆标识...');
+
+        // 先获取腾讯地图图片
+        const mapImage = await this._loadImageElement(baseMapUrl);
+
+        // 创建最终画布
+        const canvas = document.createElement('canvas');
+        canvas.width = 600;  // 最终分享图片宽度
+        canvas.height = 400; // 最终分享图片高度
+        const ctx = canvas.getContext('2d');
+
+        // 1. 绘制背景
+        ctx.fillStyle = '#f8f9fa';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        // 2. 绘制腾讯地图（居中）
+        const mapWidth = 300;
+        const mapHeight = 200;
+        const mapX = (canvas.width - mapWidth) / 2;
+        const mapY = 60;
+
+        ctx.drawImage(mapImage, mapX, mapY, mapWidth, mapHeight);
+
+        // 3. 添加地图边框
+        ctx.strokeStyle = '#ddd';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(mapX, mapY, mapWidth, mapHeight);
+
+        // 4. 在地图中心绘制车辆标记
+        const centerX = canvas.width / 2;
+        const centerY = mapY + mapHeight / 2;
+        this._drawVehicleMarker(ctx, centerX, centerY, carInfo);
+
+        // 5. 绘制标题
+        this._drawTitle(ctx, canvas.width, carInfo);
+
+        // 6. 绘制车辆信息卡片
+        this._drawInfoCard(ctx, canvas.width, canvas.height, carInfo, location);
+
+        // 转换为图片URL
+        const dataUrl = canvas.toDataURL('image/jpeg', 0.9);
+        console.log('✅ 真实图片生成完成');
+        return dataUrl;
+    }
+
+    // 加载图片元素（通过代理服务获取base64）
+    async _loadImageElement(url) {
         try {
-            console.log('🎨 生成真实图片，包含车辆标识...');
+            // 使用公共CORS代理服务
+            // 注意：在生产环境中，应该使用自己的代理服务
+            const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`;
 
-            // 先获取腾讯地图图片
-            const mapImage = await this._loadImageElement(baseMapUrl);
+            // 也可以尝试其他代理服务作为备选
+            // const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(url)}`;
+            // const proxyUrl = `https://cors-anywhere.herokuapp.com/${url}`;
 
-            // 创建最终画布
-            const canvas = document.createElement('canvas');
-            canvas.width = 600;  // 最终分享图片宽度
-            canvas.height = 400; // 最终分享图片高度
-            const ctx = canvas.getContext('2d');
+            console.log('通过代理获取图片:', proxyUrl);
 
-            // 1. 绘制背景
-            ctx.fillStyle = '#f8f9fa';
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            // 1. 通过代理获取图片数据
+            const response = await fetch(proxyUrl, {
+                method: 'GET',
+                headers: {
+                    'Accept': 'image/*'
+                }
+            });
 
-            // 2. 绘制腾讯地图（居中）
-            const mapWidth = 300;
-            const mapHeight = 200;
-            const mapX = (canvas.width - mapWidth) / 2;
-            const mapY = 60;
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
 
-            ctx.drawImage(mapImage, mapX, mapY, mapWidth, mapHeight);
+            // 2. 转换为blob
+            const blob = await response.blob();
 
-            // 3. 添加地图边框
-            ctx.strokeStyle = '#ddd';
-            ctx.lineWidth = 1;
-            ctx.strokeRect(mapX, mapY, mapWidth, mapHeight);
+            // 3. 转换为base64
+            const base64 = await this._blobToBase64(blob);
 
-            // 4. 在地图中心绘制车辆标记
-            const centerX = canvas.width / 2;
-            const centerY = mapY + mapHeight / 2;
-            this._drawVehicleMarker(ctx, centerX, centerY, carInfo);
+            // 4. 创建图片元素
+            const img = new Image();
 
-            // 5. 绘制标题
-            this._drawTitle(ctx, canvas.width, carInfo);
+            // 使用Promise包装
+            return new Promise((resolve, reject) => {
+                const timeout = setTimeout(() => {
+                    reject(new Error('图片加载超时'));
+                }, 10000);
 
-            // 6. 绘制车辆信息卡片
-            this._drawInfoCard(ctx, canvas.width, canvas.height, carInfo, location);
+                img.onload = () => {
+                    clearTimeout(timeout);
+                    console.log('✅ 图片加载成功');
+                    resolve(img);
+                };
 
-            // 转换为图片URL
-            const dataUrl = canvas.toDataURL('image/jpeg', 0.9);
-            console.log('✅ 真实图片生成完成');
-            return dataUrl;
+                img.onerror = (e) => {
+                    clearTimeout(timeout);
+                    console.error('图片加载失败:', e);
+                    reject(new Error('图片加载失败'));
+                };
+
+                // 使用base64数据作为源
+                img.src = base64;
+            });
 
         } catch (error) {
-            console.error('Canvas生成失败，尝试备用方案:', error);
-            // 如果Canvas生成失败，返回一个包含所有信息的HTML分享页面
-            return this._createHTMLSharePage(baseMapUrl, location, carInfo);
+            console.error('代理方式失败:', error);
+            // 如果代理失败，尝试其他方案
+            return this._loadImageElementFallback(url);
         }
     }
 
-    // 加载图片元素
-    async _loadImageElement(url) {
+    // 将blob转换为base64
+    _blobToBase64(blob) {
         return new Promise((resolve, reject) => {
-            const img = new Image();
-            // 设置跨域属性，允许Canvas导出
-            img.crossOrigin = 'anonymous';
-
-            const timeout = setTimeout(() => {
-                reject(new Error('图片加载超时'));
-            }, 10000);
-
-            img.onload = () => {
-                clearTimeout(timeout);
-                resolve(img);
-            };
-
-            img.onerror = () => {
-                clearTimeout(timeout);
-                reject(new Error('图片加载失败 - 可能是跨域问题'));
-            };
-
-            img.src = url;
+            const reader = new FileReader();
+            reader.onload = () => resolve(reader.result);
+            reader.onerror = reject;
+            reader.readAsDataURL(blob);
         });
+    }
+
+    // 备用加载方案（尝试多个代理）
+    async _loadImageElementFallback(url) {
+        const proxies = [
+            `https://corsproxy.io/?${encodeURIComponent(url)}`,
+            `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`
+        ];
+
+        for (const proxyUrl of proxies) {
+            try {
+                console.log('尝试备用代理:', proxyUrl);
+
+                const response = await fetch(proxyUrl);
+                if (response.ok) {
+                    const blob = await response.blob();
+                    const base64 = await this._blobToBase64(blob);
+
+                    const img = new Image();
+
+                    return new Promise((resolve, reject) => {
+                        const timeout = setTimeout(() => {
+                            reject(new Error('图片加载超时'));
+                        }, 10000);
+
+                        img.onload = () => {
+                            clearTimeout(timeout);
+                            resolve(img);
+                        };
+
+                        img.onerror = reject;
+                        img.src = base64;
+                    });
+                }
+            } catch (e) {
+                console.warn(`代理 ${proxyUrl} 失败:`, e);
+                continue;
+            }
+        }
+
+        // 所有代理都失败了
+        throw new Error('所有代理服务都无法访问图片');
     }
 
     // 创建HTML分享页面（备用方案）

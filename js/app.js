@@ -333,43 +333,13 @@ class VehicleLocationApp {
                 this.currentCar
             );
 
-            // 检查返回的是图片URL还是HTML页面
-            if (screenshotUrl.startsWith('blob:')) {
-                // 如果是HTML页面，使用iframe显示
-                const screenshotContainer = document.getElementById('screenshot-image');
-                if (screenshotContainer) {
-                    screenshotContainer.style.display = 'none';
-
-                    // 创建或更新iframe
-                    let iframe = document.getElementById('share-iframe');
-                    if (!iframe) {
-                        iframe = document.createElement('iframe');
-                        iframe.id = 'share-iframe';
-                        iframe.style.width = '100%';
-                        iframe.style.height = '400px';
-                        iframe.style.border = 'none';
-                        iframe.style.borderRadius = '8px';
-                        screenshotContainer.parentNode.insertBefore(iframe, screenshotContainer.nextSibling);
-                    }
-                    iframe.src = screenshotUrl;
-                    iframe.style.display = 'block';
-                }
-            } else {
-                // 如果是图片URL，正常显示
-                const screenshotImage = document.getElementById('screenshot-image');
-                const iframe = document.getElementById('share-iframe');
-
-                // 隐藏iframe
-                if (iframe) {
-                    iframe.style.display = 'none';
-                }
-
-                if (screenshotImage) {
-                    screenshotImage.src = screenshotUrl;
-                    screenshotImage.style.width = '100%';
-                    screenshotImage.style.height = 'auto';
-                    screenshotImage.style.display = 'block';
-                }
+            // 设置截图图片（现在是包含车辆信息的真实图片）
+            const screenshotImage = document.getElementById('screenshot-image');
+            if (screenshotImage) {
+                screenshotImage.src = screenshotUrl;
+                screenshotImage.style.width = '100%';
+                screenshotImage.style.height = 'auto';
+                screenshotImage.style.display = 'block';
             }
 
             // 更新分享信息
