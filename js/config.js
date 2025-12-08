@@ -31,7 +31,19 @@ const MAP_CONFIG = {
     key: '67PBZ-AWOWQ-TTW5A-BTI3M-BNMHH-2YBXZ', // 需要替换为实际的腾讯地图API Key
     center: [39.908692, 116.397477], // 北京天安门
     zoom: 16,
-    style: 'normal'
+    style: 'normal',
+    // 默认测试位置（杭州西湖附近，用于测试）
+    defaultLocation: {
+        lat: 30.204763,
+        lng: 120.204781,
+        accuracy: 50,
+        timestamp: Date.now(),
+        provider: '默认位置',
+        accuracyLevel: '测试位置',
+        quality: 80,
+        address: '浙江省杭州市西湖区西湖风景名胜区',
+        isDefault: true
+    }
 };
 
 // 应用配置

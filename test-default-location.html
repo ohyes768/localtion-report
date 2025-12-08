@@ -1,0 +1,440 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>默认位置测试 - 杭州西湖</title>
+    <script charset="utf-8" src="https://map.qq.com/api/gljs?v=1.exp&key=67PBZ-AWOWQ-TTW5A-BTI3M-BNMHH-2YBXZ"></script>
+    <link rel="stylesheet" href="css/style.css">
+    <style>
+        .test-info {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 8px;
+            padding: 15px;
+            margin: 20px;
+        }
+        .test-info h3 {
+            color: #495057;
+            margin-bottom: 10px;
+        }
+        .test-info p {
+            color: #6c757d;
+            margin: 5px 0;
+        }
+    </style>
+</head>
+<body>
+    <!-- 地图展示页面 -->
+    <div id="map-page" class="page active">
+        <div class="test-info">
+            <h3>🧪 默认位置测试页面</h3>
+            <p>此页面模拟在电脑室内无法获取GPS时的场景</p>
+            <p>当定位失败时，系统会自动使用杭州西湖的默认位置</p>
+            <p>您可以测试完整的分享功能流程</p>
+        </div>
+
+        <div class="map-header">
+            <h2 id="location-title">默认位置测试</h2>
+            <p id="location-address">地址加载中...</p>
+
+            <!-- 经纬度信息显示区域 -->
+            <div id="coordinates-info" class="coordinates-info" style="display: none;">
+                <div class="coordinates-container">
+                    <div class="coordinate-item">
+                        <span class="coordinate-label">📍 经纬度:</span>
+                        <span id="coordinates-display" class="coordinate-value">加载中...</span>
+                        <button id="copy-coordinates-btn" class="copy-btn" title="复制经纬度">
+                            <span class="icon">📋</span>
+                        </button>
+                    </div>
+                    <div class="coordinate-details">
+                        <div class="detail-item">
+                            <span class="detail-label">精度:</span>
+                            <span id="accuracy-display" class="detail-value">-</span>
+                        </div>
+                        <div class="detail-item">
+                            <span class="detail-label">来源:</span>
+                            <span id="provider-display" class="detail-value">-</span>
+                        </div>
+                        <div class="detail-item">
+                            <span class="detail-label">时间:</span>
+                            <span id="time-display" class="detail-value">-</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="location-analysis" id="location-analysis" style="display: none;"></div>
+        </div>
+
+        <div id="map-container" style="height: 400px;"></div>
+
+        <div class="action-buttons">
+            <button id="refresh-btn" class="btn">
+                <span class="icon">🔄</span> 刷新位置
+            </button>
+            <button id="force-fail-btn" class="btn" style="background: #ff9500;">
+                <span class="icon">❌</span> 强制定位失败
+            </button>
+            <button id="share-btn" class="btn primary">
+                <span class="icon">📤</span> 分享位置
+            </button>
+        </div>
+    </div>
+
+    <!-- Toast提示 -->
+    <div id="toast" class="toast"></div>
+
+    <!-- 加载脚本 -->
+    <script src="js/config.js"></script>
+    <script src="js/utils.js"></script>
+    <script src="js/browser-detection.js"></script>
+    <script src="js/location.js"></script>
+    <script src="js/map.js"></script>
+
+    <script>
+        // 默认位置测试应用
+        class DefaultLocationTestApp {
+            constructor() {
+                this.currentLocation = null;
+                this.locationManager = new LocationManager();
+                this.mapManager = new MapManager();
+                this.testCar = {
+                    name: '测试车辆A',
+                    plate: '京TEST123',
+                    color: '#007AFF'
+                };
+                this.forceFailure = false;
+                this.init();
+            }
+
+            async init() {
+                try {
+                    console.log('🚀 开始初始化默认位置测试...');
+
+                    // 检查腾讯地图API
+                    if (typeof TMap === 'undefined') {
+                        throw new Error('腾讯地图API未加载');
+                    }
+
+                    // 初始化定位管理器
+                    if (typeof browserDetection !== 'undefined') {
+                        const tencentEnabled = this.locationManager.enableTencentLocation();
+                        console.log(`🎯 腾讯定位组件: ${tencentEnabled ? '✅ 已启用' : '❌ 未启用'}`);
+                    }
+
+                    // 绑定事件
+                    this.bindEvents();
+
+                    console.log('✅ 初始化完成');
+                    Utils.showToast('默认位置测试初始化完成');
+
+                } catch (error) {
+                    console.error('初始化失败:', error);
+                    Utils.showToast('初始化失败: ' + error.message);
+                }
+            }
+
+            bindEvents() {
+                // 刷新位置按钮
+                const refreshBtn = document.getElementById('refresh-btn');
+                if (refreshBtn) {
+                    refreshBtn.addEventListener('click', () => {
+                        this.getCurrentLocation();
+                    });
+                }
+
+                // 强制定位失败按钮
+                const forceFailBtn = document.getElementById('force-fail-btn');
+                if (forceFailBtn) {
+                    forceFailBtn.addEventListener('click', () => {
+                        this.toggleForceFailure();
+                    });
+                }
+
+                // 分享位置按钮
+                const shareBtn = document.getElementById('share-btn');
+                if (shareBtn) {
+                    shareBtn.addEventListener('click', () => {
+                        this.shareLocation();
+                    });
+                }
+
+                // 复制经纬度按钮
+                const copyCoordinatesBtn = document.getElementById('copy-coordinates-btn');
+                if (copyCoordinatesBtn) {
+                    copyCoordinatesBtn.addEventListener('click', () => {
+                        this.copyCoordinates();
+                    });
+                }
+            }
+
+            // 切换强制定位失败
+            toggleForceFailure() {
+                this.forceFailure = !this.forceFailure;
+                const btn = document.getElementById('force-fail-btn');
+
+                if (this.forceFailure) {
+                    btn.innerHTML = '<span class="icon">✅</span> 恢复正常定位';
+                    btn.style.background = '#28a745';
+                    Utils.showToast('🚫 已启用强制定位失败模式');
+                } else {
+                    btn.innerHTML = '<span class="icon">❌</span> 强制定位失败';
+                    btn.style.background = '#ff9500';
+                    Utils.showToast('✅ 已恢复正常定位模式');
+                }
+            }
+
+            // 获取当前位置
+            async getCurrentLocation() {
+                try {
+                    Utils.showToast('🎯 正在获取位置...');
+
+                    let location;
+
+                    if (this.forceFailure) {
+                        // 强制使用默认位置
+                        location = this.createForcedDefaultLocation();
+                        this.currentLocation = location;
+                        Utils.showToast('🧪 强制使用默认位置（杭州西湖）');
+                    } else {
+                        // 正常定位流程
+                        try {
+                            location = await this.locationManager.getCurrentPosition();
+                            this.currentLocation = location;
+                            Utils.showToast('✅ 位置获取成功');
+                        } catch (error) {
+                            console.warn('正常定位失败，将使用默认位置:', error);
+                            // 这时会自动触发默认位置逻辑
+                            location = await this.locationManager.getCurrentLocation({ force: true });
+                            this.currentLocation = location;
+                        }
+                    }
+
+                    // 显示经纬度信息
+                    this.updateCoordinatesDisplay(location);
+
+                    // 如果地图已初始化，更新地图
+                    if (this.mapManager.isMapLoaded) {
+                        await this.updateMap(location);
+                    } else {
+                        // 初始化地图
+                        await this.initializeMap(location);
+                    }
+
+                } catch (error) {
+                    console.error('获取位置失败:', error);
+                    Utils.showToast('❌ 位置获取失败: ' + error.message);
+                }
+            }
+
+            // 创建强制默认位置
+            createForcedDefaultLocation() {
+                const defaultLocation = JSON.parse(JSON.stringify(MAP_CONFIG.defaultLocation));
+                defaultLocation.timestamp = Date.now();
+                defaultLocation.provider = '强制默认位置';
+                defaultLocation.browserStrategy = '强制默认位置';
+                defaultLocation.isDefaultLocation = true;
+                defaultLocation.isRealLocation = false;
+
+                console.log('🧪 创建强制默认位置:', defaultLocation);
+                return defaultLocation;
+            }
+
+            // 初始化地图
+            async initializeMap(location) {
+                try {
+                    const container = document.getElementById('map-container');
+                    await this.mapManager.initializeMap(container, location, 16);
+                    await this.updateMap(location);
+                } catch (error) {
+                    console.error('地图初始化失败:', error);
+                    Utils.showToast('地图初始化失败: ' + error.message);
+                }
+            }
+
+            // 更新地图
+            async updateMap(location) {
+                try {
+                    this.mapManager.addMarker(location, this.testCar);
+
+                    // 获取并显示地址
+                    try {
+                        const address = await this.mapManager.getAddressFromLocation(location);
+                        document.getElementById('location-address').textContent = address;
+                    } catch (error) {
+                        document.getElementById('location-address').textContent = location.address || '地址获取失败';
+                        console.warn('地址获取失败:', error);
+                    }
+
+                } catch (error) {
+                    console.error('更新地图失败:', error);
+                }
+            }
+
+            // 更新经纬度信息显示
+            updateCoordinatesDisplay(location) {
+                if (!location) {
+                    return;
+                }
+
+                try {
+                    // 显示经纬度信息容器
+                    const coordinatesInfo = document.getElementById('coordinates-info');
+                    if (coordinatesInfo) {
+                        coordinatesInfo.style.display = 'block';
+                    }
+
+                    // 更新经纬度显示
+                    const coordinatesDisplay = document.getElementById('coordinates-display');
+                    if (coordinatesDisplay) {
+                        const lat = location.lat.toFixed(6);
+                        const lng = location.lng.toFixed(6);
+                        coordinatesDisplay.textContent = `${lat}, ${lng}`;
+
+                        // 如果是默认位置，添加标识
+                        if (location.isDefaultLocation) {
+                            coordinatesDisplay.style.color = '#ff9500';
+                            coordinatesDisplay.style.fontStyle = 'italic';
+                        } else {
+                            coordinatesDisplay.style.color = '#0066cc';
+                            coordinatesDisplay.style.fontStyle = 'normal';
+                        }
+                    }
+
+                    // 更新精度信息
+                    const accuracyDisplay = document.getElementById('accuracy-display');
+                    if (accuracyDisplay) {
+                        const accuracy = location.accuracy ? Math.round(location.accuracy) : '未知';
+                        if (location.isDefaultLocation) {
+                            accuracyDisplay.innerHTML = `${accuracy}米 <small style="color: #ff9500;">(测试位置)</small>`;
+                        } else {
+                            accuracyDisplay.textContent = `${accuracy}米`;
+                        }
+                    }
+
+                    // 更新定位来源
+                    const providerDisplay = document.getElementById('provider-display');
+                    if (providerDisplay) {
+                        let provider = '浏览器定位';
+                        if (location.provider === 'tencent') {
+                            provider = '腾讯定位';
+                        } else if (location.provider === '默认位置' || location.provider === '强制默认位置') {
+                            provider = location.provider;
+                        } else if (location.browserStrategy) {
+                            provider = location.browserStrategy;
+                        }
+
+                        if (location.isDefaultLocation) {
+                            provider = `🧪 ${provider}`;
+                            providerDisplay.style.color = '#ff9500';
+                        } else {
+                            providerDisplay.style.color = '#007AFF';
+                        }
+
+                        providerDisplay.textContent = provider;
+                    }
+
+                    // 更新定位时间
+                    const timeDisplay = document.getElementById('time-display');
+                    if (timeDisplay) {
+                        const time = new Date(location.timestamp || Date.now());
+                        const timeText = Utils.formatTime(time);
+
+                        if (location.isDefaultLocation) {
+                            timeDisplay.innerHTML = `${timeText} <small style="color: #ff9500;">(测试)</small>`;
+                        } else {
+                            timeDisplay.textContent = timeText;
+                        }
+                    }
+
+                    console.log('✅ 经纬度信息更新完成:', {
+                        coordinates: `${location.lat.toFixed(6)}, ${location.lng.toFixed(6)}`,
+                        accuracy: location.accuracy,
+                        provider: location.provider,
+                        isDefault: location.isDefaultLocation
+                    });
+
+                } catch (error) {
+                    console.error('更新经纬度显示失败:', error);
+                }
+            }
+
+            // 复制经纬度
+            async copyCoordinates() {
+                try {
+                    if (!this.currentLocation) {
+                        Utils.showToast('暂无经纬度信息');
+                        return;
+                    }
+
+                    const lat = this.currentLocation.lat.toFixed(6);
+                    const lng = this.currentLocation.lng.toFixed(6);
+                    const accuracy = this.currentLocation.accuracy ? Math.round(this.currentLocation.accuracy) : '未知';
+                    const time = Utils.formatTime(new Date(this.currentLocation.timestamp || Date.now()));
+                    const locationType = this.currentLocation.isDefaultLocation ? '（测试位置）' : '';
+
+                    // 构建经纬度信息文本
+                    const coordinatesText = `${this.testCar.name} 位置信息${locationType}
+
+📍 经纬度: ${lat}, ${lng}
+🎯 精度: ${accuracy}米
+🕐 定位时间: ${time}
+🚗 车牌号: ${this.testCar.plate}
+📍 位置: ${this.currentLocation.address || '杭州西湖'}
+
+---
+由车辆位置分享系统生成`;
+
+                    const success = await Utils.copyToClipboard(coordinatesText);
+
+                    if (success) {
+                        Utils.showToast('✅ 经纬度信息已复制到剪贴板');
+                    } else {
+                        Utils.showToast('请手动复制经纬度信息');
+                    }
+
+                } catch (error) {
+                    console.error('复制经纬度失败:', error);
+                    Utils.showToast('复制经纬度失败，请手动复制');
+                }
+            }
+
+            // 分享位置
+            async shareLocation() {
+                if (!this.currentLocation) {
+                    Utils.showToast('请先获取位置信息');
+                    return;
+                }
+
+                try {
+                    // 生成腾讯位置服务分享页面
+                    const sharePageUrl = await this.mapManager.generateSharePage(
+                        this.currentLocation,
+                        this.testCar
+                    );
+
+                    // 在新窗口中打开分享页面
+                    const newWindow = window.open(sharePageUrl, '_blank', 'width=400,height=600,scrollbars=yes');
+
+                    if (newWindow) {
+                        Utils.showToast('✅ 分享页面已打开');
+                    } else {
+                        Utils.showToast('请允许弹出窗口或复制链接分享');
+                    }
+
+                } catch (error) {
+                    console.error('分享失败:', error);
+                    Utils.showToast('分享失败: ' + error.message);
+                }
+            }
+        }
+
+        // 启动应用
+        document.addEventListener('DOMContentLoaded', () => {
+            window.testApp = new DefaultLocationTestApp();
+        });
+    </script>
+</body>
+</html>

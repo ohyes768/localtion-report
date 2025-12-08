@@ -610,6 +610,15 @@ class VehicleLocationApp {
                 const lat = location.lat.toFixed(6);
                 const lng = location.lng.toFixed(6);
                 coordinatesDisplay.textContent = `${lat}, ${lng}`;
+
+                // 如果是默认位置，添加标识
+                if (location.isDefaultLocation) {
+                    coordinatesDisplay.style.color = '#ff9500';
+                    coordinatesDisplay.style.fontStyle = 'italic';
+                } else {
+                    coordinatesDisplay.style.color = '#0066cc';
+                    coordinatesDisplay.style.fontStyle = 'normal';
+                }
             }
 
             // 更新精度信息
@@ -617,6 +626,11 @@ class VehicleLocationApp {
             if (accuracyDisplay) {
                 const accuracy = location.accuracy ? Math.round(location.accuracy) : '未知';
                 accuracyDisplay.textContent = `${accuracy}米`;
+
+                // 如果是默认位置，添加标识
+                if (location.isDefaultLocation) {
+                    accuracyDisplay.innerHTML = `${accuracy}米 <small style="color: #ff9500;">(测试位置)</small>`;
+                }
             }
 
             // 更新定位来源
@@ -625,11 +639,22 @@ class VehicleLocationApp {
                 let provider = '浏览器定位';
                 if (location.provider === 'tencent') {
                     provider = '腾讯定位';
+                } else if (location.provider === '默认位置') {
+                    provider = '默认位置';
                 } else if (location.browserStrategy) {
                     provider = location.browserStrategy;
                 } else if (location.browserOptimized) {
                     provider = '浏览器优化';
                 }
+
+                // 如果是默认位置，添加特殊标识
+                if (location.isDefaultLocation) {
+                    provider = `🧪 ${provider}`;
+                    providerDisplay.style.color = '#ff9500';
+                } else {
+                    providerDisplay.style.color = '#007AFF';
+                }
+
                 providerDisplay.textContent = provider;
             }
 
@@ -637,20 +662,98 @@ class VehicleLocationApp {
             const timeDisplay = document.getElementById('time-display');
             if (timeDisplay) {
                 const time = new Date(location.timestamp || Date.now());
-                timeDisplay.textContent = Utils.formatTime(time);
+                const timeText = Utils.formatTime(time);
+
+                // 如果是默认位置，添加标识
+                if (location.isDefaultLocation) {
+                    timeDisplay.innerHTML = `${timeText} <small style="color: #ff9500;">(测试)</small>`;
+                } else {
+                    timeDisplay.textContent = timeText;
+                }
             }
 
             if (APP_CONFIG.debug) {
                 console.log('✅ 经纬度信息更新完成:', {
                     coordinates: `${location.lat.toFixed(6)}, ${location.lng.toFixed(6)}`,
                     accuracy: location.accuracy,
-                    provider: providerDisplay.textContent
+                    provider: providerDisplay.textContent,
+                    isDefault: location.isDefaultLocation
                 });
+
+                // 如果是默认位置，显示特殊提示
+                if (location.isDefaultLocation) {
+                    console.log('🧪 当前使用默认测试位置（杭州西湖），用于开发和测试');
+                }
+            }
+
+            // 显示默认位置提示
+            if (location.isDefaultLocation) {
+                this.showDefaultLocationTip();
             }
 
         } catch (error) {
             console.error('更新经纬度显示失败:', error);
         }
+    }
+
+    // 显示默认位置提示
+    showDefaultLocationTip() {
+        // 检查是否已经显示过提示
+        if (localStorage.getItem('defaultLocationTipShown')) {
+            return;
+        }
+
+        const tip = document.createElement('div');
+        tip.style.cssText = `
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #ff9500;
+            color: white;
+            padding: 12px 20px;
+            border-radius: 8px;
+            font-size: 14px;
+            z-index: 9999;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+            animation: slideDown 0.3s ease-out;
+            max-width: 300px;
+            text-align: center;
+        `;
+        tip.innerHTML = `
+            <strong>🧪 测试模式</strong><br>
+            当前使用默认位置（杭州西湖）<br>
+            <small>用于开发和测试分享功能</small>
+        `;
+
+        document.body.appendChild(tip);
+
+        // 添加动画样式
+        const style = document.createElement('style');
+        style.textContent = `
+            @keyframes slideDown {
+                from {
+                    opacity: 0;
+                    transform: translate(-50%, -20px);
+                }
+                to {
+                    opacity: 1;
+                    transform: translate(-50%, 0);
+                }
+            }
+        `;
+        document.head.appendChild(style);
+
+        // 3秒后自动隐藏
+        setTimeout(() => {
+            tip.style.animation = 'slideUp 0.3s ease-out';
+            setTimeout(() => {
+                document.body.removeChild(tip);
+            }, 300);
+        }, 5000);
+
+        // 标记已显示过提示
+        localStorage.setItem('defaultLocationTipShown', 'true');
     }
 
     // 更新位置分析信息

@@ -258,7 +258,11 @@ class LocationManager {
                                 tencentResult.browserStrategy = `${this.locationStrategy.name} + 腾讯备用`;
                                 resolve(tencentResult);
                             } catch (tencentError) {
-                                reject(new Error(`${errorMessage} (腾讯备用也失败: ${tencentError.message})`));
+                                // 使用默认测试位置
+                                console.warn('腾讯定位也失败，使用默认测试位置（杭州西湖）');
+                                const defaultLocation = this._createDefaultLocation();
+                                defaultLocation.browserStrategy = `${this.locationStrategy.name} + 腾讯备用 + 默认位置`;
+                                resolve(defaultLocation);
                             }
                         } else {
                             reject(new Error(this._getEnhancedErrorMessage(error, attempt)));
@@ -291,6 +295,29 @@ class LocationManager {
         }
 
         return 2000 * attempt; // 2s, 4s, 6s
+    }
+
+    // 创建默认位置（用于测试）
+    _createDefaultLocation() {
+        const defaultLocation = JSON.parse(JSON.stringify(MAP_CONFIG.defaultLocation)); // 深拷贝
+
+        // 更新时间戳
+        defaultLocation.timestamp = Date.now();
+
+        // 添加浏览器策略信息
+        if (this.locationStrategy) {
+            defaultLocation.browserStrategy = `${this.locationStrategy.name} + 默认位置`;
+        }
+
+        // 添加默认位置标识
+        defaultLocation.isDefaultLocation = true;
+        defaultLocation.isRealLocation = false;
+
+        if (APP_CONFIG.debug) {
+            console.log('📍 创建默认测试位置:', defaultLocation);
+        }
+
+        return defaultLocation;
     }
 
     // 启用腾讯定位组件
@@ -406,7 +433,10 @@ class LocationManager {
                             }
                             resolve(cachedPosition);
                         } else {
-                            reject(new Error(this._getEnhancedErrorMessage(error, attempt)));
+                            // 使用默认测试位置（用于开发和测试）
+                            console.warn('所有定位方式都失败，使用默认测试位置（杭州西湖）');
+                            const defaultLocation = this._createDefaultLocation();
+                            resolve(defaultLocation);
                         }
                     }
                 },
