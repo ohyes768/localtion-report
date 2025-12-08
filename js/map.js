@@ -457,54 +457,76 @@ class MapManager {
             return cachedUrl.url;
         }
 
-        // 由于CORS限制，直接使用Canvas方案作为主要方案
-        console.log('由于腾讯地图API存在CORS限制，直接使用Canvas方案生成截图...');
-
+        // 优先使用腾讯地图静态图API（域名白名单已添加）
         try {
-            const canvasUrl = await this._generateCanvasScreenshot(location, carInfo);
+            console.log('尝试使用腾讯地图静态图API...');
+            const staticMapUrl = await this._generateStaticMapScreenshot(location, carInfo);
 
             // 缓存结果
             const cacheData = {
-                url: canvasUrl,
+                url: staticMapUrl,
                 timestamp: Date.now()
             };
             Utils.storage.set(`screenshot_${cacheKey}`, cacheData, CACHE_CONFIG.screenshotCacheTime);
 
             if (APP_CONFIG.debug) {
-                console.log('Canvas截图生成成功:', canvasUrl);
+                console.log('腾讯地图静态图截图生成成功:', staticMapUrl);
             }
 
-            return canvasUrl;
+            return staticMapUrl;
 
-        } catch (canvasError) {
-            console.error('Canvas截图失败，尝试SVG方案...');
+        } catch (staticMapError) {
+            console.warn('腾讯地图静态图API失败，使用Canvas备用方案:', staticMapError.message);
 
+            // 使用备用方案：生成Canvas截图
             try {
-                // 备用方案：生成纯文本位置图片
-                const textImageUrl = await this._generateTextImageScreenshot(location, carInfo);
+                console.log('使用Canvas备用方案生成截图...');
+                const canvasUrl = await this._generateCanvasScreenshot(location, carInfo);
 
                 // 缓存结果
                 const cacheData = {
-                    url: textImageUrl,
+                    url: canvasUrl,
                     timestamp: Date.now()
                 };
                 Utils.storage.set(`screenshot_${cacheKey}`, cacheData, CACHE_CONFIG.screenshotCacheTime);
 
                 if (APP_CONFIG.debug) {
-                    console.log('SVG文本截图生成成功:', textImageUrl);
+                    console.log('Canvas截图生成成功:', canvasUrl);
                 }
 
-                return textImageUrl;
+                return canvasUrl;
 
-            } catch (textError) {
-                console.error('所有截图方案都失败了');
-                Utils.logError(textError, {
-                    type: 'screenshot_generation_all_failed',
-                    canvasError: canvasError,
-                    textError: textError
-                });
+            } catch (canvasError) {
+                console.error('Canvas截图失败，尝试SVG方案...');
 
-                throw new Error('所有截图方案都失败了，分享功能暂时不可用');
+                try {
+                    // 最后的备用方案：生成纯文本位置图片
+                    const textImageUrl = await this._generateTextImageScreenshot(location, carInfo);
+
+                    // 缓存结果
+                    const cacheData = {
+                        url: textImageUrl,
+                        timestamp: Date.now()
+                    };
+                    Utils.storage.set(`screenshot_${cacheKey}`, cacheData, CACHE_CONFIG.screenshotCacheTime);
+
+                    if (APP_CONFIG.debug) {
+                        console.log('SVG文本截图生成成功:', textImageUrl);
+                    }
+
+                    return textImageUrl;
+
+                } catch (textError) {
+                    console.error('所有截图方案都失败了');
+                    Utils.logError(textError, {
+                        type: 'screenshot_generation_all_failed',
+                        staticMapError: staticMapError,
+                        canvasError: canvasError,
+                        textError: textError
+                    });
+
+                    throw new Error('所有截图方案都失败了，分享功能暂时不可用');
+                }
             }
         }
     }
@@ -516,36 +538,53 @@ class MapManager {
             zoom: MAP_CONFIG.zoom,
             size: `${SHARE_CONFIG.screenshotSize.width}x${SHARE_CONFIG.screenshotSize.height}`,
             maptype: SHARE_CONFIG.defaultMapType,
-            // 简化标记参数，避免特殊字符问题
-            markers: `size:large|color:${carInfo.color.replace('#', '0x')}|${location.lat},${location.lng}`,
+            // 优化标记参数，使用车辆颜色
+            markers: `size:normal|color:${carInfo.color.replace('#', '0x')}|label:A|${location.lat},${location.lng}`,
             key: MAP_CONFIG.key,
             format: 'png'
         });
 
         const url = `${API_CONFIG.tencentMap.staticMap}?${params.toString()}`;
 
-        console.log('静态地图API URL:', url);
+        console.log('腾讯地图静态图API URL:', url);
+        console.log('API Key:', MAP_CONFIG.key);
 
         // 验证图片是否可加载
         return new Promise((resolve, reject) => {
             const img = new Image();
             img.crossOrigin = 'anonymous';
 
+            // 增加更详细的错误处理
             img.onload = () => {
-                console.log('静态地图图片加载成功');
+                console.log('✅ 腾讯地图静态图加载成功，尺寸:', img.naturalWidth, 'x', img.naturalHeight);
                 resolve(url);
             };
 
-            img.onerror = () => {
-                console.error('静态地图图片加载失败');
-                reject(new Error('静态地图API调用失败，可能是配额问题或参数错误'));
+            img.onerror = (error) => {
+                console.error('❌ 腾讯地图静态图加载失败:', error);
+                console.error('失败URL:', url);
+
+                // 提供详细的错误信息
+                let errorMsg = '静态地图API调用失败';
+                if (img.naturalWidth === 0) {
+                    errorMsg += ' - 图片加载失败，可能是API Key无效或配额用完';
+                }
+
+                reject(new Error(errorMsg));
             };
 
+            img.onabort = () => {
+                console.warn('静态地图图片加载被取消');
+                reject(new Error('静态地图图片加载被取消'));
+            };
+
+            // 设置图片源
             img.src = url;
 
-            // 设置超时
+            // 设置超时时间
             setTimeout(() => {
-                reject(new Error('静态地图API请求超时'));
+                console.warn('静态地图API请求超时（10秒）');
+                reject(new Error('静态地图API请求超时，请检查网络连接或API配额'));
             }, 10000);
         });
     }
