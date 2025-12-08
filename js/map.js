@@ -443,51 +443,192 @@ class MapManager {
             throw new Error('无法生成截图：位置信息为空');
         }
 
+        console.log('开始生成截图，位置:', location);
+        console.log('车辆信息:', carInfo);
+
         const cacheKey = `${location.lat}_${location.lng}_${MAP_CONFIG.zoom}`;
 
         // 检查缓存
         const cachedUrl = Utils.storage.get(`screenshot_${cacheKey}`);
         if (cachedUrl && !this._isPositionStale(cachedUrl.timestamp, CACHE_CONFIG.screenshotCacheTime)) {
             if (APP_CONFIG.debug) {
-                console.log('使用缓存的地图截图');
+                console.log('使用缓存的地图截图:', cachedUrl.url);
             }
             return cachedUrl.url;
         }
 
+        // 首先尝试使用腾讯地图静态图API
         try {
-            // 使用腾讯地图静态图API
-            const params = new URLSearchParams({
-                center: `${location.lat},${location.lng}`,
-                zoom: MAP_CONFIG.zoom,
-                size: `${SHARE_CONFIG.screenshotSize.width}x${SHARE_CONFIG.screenshotSize.height}`,
-                maptype: SHARE_CONFIG.defaultMapType,
-                markers: `size:large|color:red|label:${carInfo.name}|${location.lat},${location.lng}`,
-                key: MAP_CONFIG.key,
-                format: 'png'
-            });
-
-            const url = `${API_CONFIG.tencentMap.staticMap}?${params.toString()}`;
+            console.log('尝试使用腾讯地图静态图API...');
+            const staticMapUrl = await this._generateStaticMapScreenshot(location, carInfo);
 
             // 缓存结果
             const cacheData = {
-                url: url,
+                url: staticMapUrl,
                 timestamp: Date.now()
             };
             Utils.storage.set(`screenshot_${cacheKey}`, cacheData, CACHE_CONFIG.screenshotCacheTime);
 
             if (APP_CONFIG.debug) {
-                console.log('生成新的地图截图:', url);
+                console.log('静态地图截图生成成功:', staticMapUrl);
             }
 
-            return url;
+            return staticMapUrl;
 
-        } catch (error) {
-            Utils.logError(error, {
-                type: 'screenshot_generation',
-                location: location
-            });
-            throw new Error('地图截图生成失败: ' + error.message);
+        } catch (staticMapError) {
+            console.warn('腾讯地图静态图API失败，尝试备用方案:', staticMapError.message);
+
+            // 使用备用方案：生成简单的Canvas截图
+            try {
+                console.log('使用Canvas备用方案生成截图...');
+                const canvasUrl = await this._generateCanvasScreenshot(location, carInfo);
+
+                // 缓存结果
+                const cacheData = {
+                    url: canvasUrl,
+                    timestamp: Date.now()
+                };
+                Utils.storage.set(`screenshot_${cacheKey}`, cacheData, CACHE_CONFIG.screenshotCacheTime);
+
+                if (APP_CONFIG.debug) {
+                    console.log('Canvas截图生成成功:', canvasUrl);
+                }
+
+                return canvasUrl;
+
+            } catch (canvasError) {
+                console.error('所有截图方案都失败了');
+                Utils.logError(canvasError, {
+                    type: 'screenshot_generation_all_failed',
+                    staticMapError: staticMapError,
+                    canvasError: canvasError
+                });
+
+                // 最后的备用方案：生成纯文本位置图片
+                const textImageUrl = await this._generateTextImageScreenshot(location, carInfo);
+                return textImageUrl;
+            }
         }
+    }
+
+    // 使用腾讯地图静态图API生成截图
+    async _generateStaticMapScreenshot(location, carInfo) {
+        const params = new URLSearchParams({
+            center: `${location.lat},${location.lng}`,
+            zoom: MAP_CONFIG.zoom,
+            size: `${SHARE_CONFIG.screenshotSize.width}x${SHARE_CONFIG.screenshotSize.height}`,
+            maptype: SHARE_CONFIG.defaultMapType,
+            // 简化标记参数，避免特殊字符问题
+            markers: `size:large|color:${carInfo.color.replace('#', '0x')}|${location.lat},${location.lng}`,
+            key: MAP_CONFIG.key,
+            format: 'png'
+        });
+
+        const url = `${API_CONFIG.tencentMap.staticMap}?${params.toString()}`;
+
+        console.log('静态地图API URL:', url);
+
+        // 验证图片是否可加载
+        return new Promise((resolve, reject) => {
+            const img = new Image();
+            img.crossOrigin = 'anonymous';
+
+            img.onload = () => {
+                console.log('静态地图图片加载成功');
+                resolve(url);
+            };
+
+            img.onerror = () => {
+                console.error('静态地图图片加载失败');
+                reject(new Error('静态地图API调用失败，可能是配额问题或参数错误'));
+            };
+
+            img.src = url;
+
+            // 设置超时
+            setTimeout(() => {
+                reject(new Error('静态地图API请求超时'));
+            }, 10000);
+        });
+    }
+
+    // 使用Canvas生成备用截图
+    async _generateCanvasScreenshot(location, carInfo) {
+        return new Promise((resolve, reject) => {
+            const canvas = document.createElement('canvas');
+            canvas.width = SHARE_CONFIG.screenshotSize.width;
+            canvas.height = SHARE_CONFIG.screenshotSize.height;
+            const ctx = canvas.getContext('2d');
+
+            try {
+                // 绘制背景
+                ctx.fillStyle = '#f0f0f0';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+                // 绘制标题区域
+                ctx.fillStyle = carInfo.color || '#007AFF';
+                ctx.fillRect(0, 0, canvas.width, 60);
+
+                // 绘制标题文字
+                ctx.fillStyle = 'white';
+                ctx.font = 'bold 24px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText(`${carInfo.name} 位置分享`, canvas.width / 2, 40);
+
+                // 绘制位置信息
+                ctx.fillStyle = '#333';
+                ctx.font = '16px Arial';
+                ctx.fillText(`车牌: ${carInfo.plate}`, canvas.width / 2, 100);
+                ctx.fillText(`位置: ${location.lat.toFixed(6)}, ${location.lng.toFixed(6)}`, canvas.width / 2, 130);
+
+                // 绘制时间
+                ctx.fillStyle = '#666';
+                ctx.font = '14px Arial';
+                const time = Utils.formatTime();
+                ctx.fillText(`更新时间: ${time}`, canvas.width / 2, 160);
+
+                // 绘制车辆图标
+                ctx.font = '48px Arial';
+                ctx.fillText('🚗', canvas.width / 2, 250);
+
+                // 绘制底部的提示文字
+                ctx.fillStyle = '#999';
+                ctx.font = '12px Arial';
+                ctx.fillText('扫描二维码查看实时位置', canvas.width / 2, 350);
+
+                // 转换为图片URL
+                const dataUrl = canvas.toDataURL('image/png');
+                resolve(dataUrl);
+
+            } catch (error) {
+                reject(new Error('Canvas截图生成失败: ' + error.message));
+            }
+        });
+    }
+
+    // 生成纯文本位置图片作为最后备用方案
+    async _generateTextImageScreenshot(location, carInfo) {
+        return `data:image/svg+xml;base64,${btoa(`
+            <svg width="600" height="400" xmlns="http://www.w3.org/2000/svg">
+                <rect width="600" height="400" fill="${carInfo.color || '#007AFF'}"/>
+                <text x="300" y="40" font-family="Arial" font-size="24" font-weight="bold" fill="white" text-anchor="middle">
+                    ${carInfo.name} 位置分享
+                </text>
+                <rect x="50" y="80" width="500" height="300" fill="white" rx="10"/>
+                <text x="300" y="120" font-family="Arial" font-size="18" fill="#333" text-anchor="middle">
+                    车牌: ${carInfo.plate}
+                </text>
+                <text x="300" y="160" font-family="Arial" font-size="16" fill="#666" text-anchor="middle">
+                    位置: ${location.lat.toFixed(6)}, ${location.lng.toFixed(6)}
+                </text>
+                <text x="300" y="200" font-family="Arial" font-size="20" text-anchor="middle">
+                    🚗
+                </text>
+                <text x="300" y="250" font-family="Arial" font-size="14" fill="#999" text-anchor="middle">
+                    ${Utils.formatTime()}
+                </text>
+            </svg>
+        `)}`;
     }
 
     // 逆地理编码获取地址（带用量控制）
