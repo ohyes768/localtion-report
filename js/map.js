@@ -116,10 +116,20 @@ class MapManager {
                 this.marker.setMap(null);
             }
 
-            // 创建简单的标记
+            // 创建车辆标识标记
             this.marker = new TMap.Marker({
                 map: this.map,
                 position: new TMap.LatLng(location.lat, location.lng),
+                styles: {
+                    'carMarker': new TMap.MarkerStyle({
+                        width: 35,
+                        height: 35,
+                        anchor: { x: 17, y: 35 },
+                        src: this.createMarkerIcon(carInfo),
+                        color: carInfo.color
+                    })
+                },
+                styleId: 'carMarker',
                 zIndex: 1000
             });
 
@@ -130,11 +140,137 @@ class MapManager {
                 });
             }
 
+            // 设置地图中心到车辆位置
+            this.setCenter(location);
+
         } catch (error) {
             console.error('添加标记失败:', error);
-            // 即使标记失败，也要保持地图中心在正确位置
+            // 尝试使用备用方法
+            this.createSimpleMarker(location, carInfo);
+        }
+    }
+
+    // 创建车辆图标
+    createMarkerIcon(carInfo) {
+        // 创建一个带有车辆信息的canvas图标
+        const canvas = document.createElement('canvas');
+        canvas.width = 70;
+        canvas.height = 70;
+        const ctx = canvas.getContext('2d');
+
+        // 绘制圆形背景
+        ctx.beginPath();
+        ctx.arc(35, 35, 30, 0, 2 * Math.PI);
+        ctx.fillStyle = carInfo.color || '#007AFF';
+        ctx.fill();
+
+        // 绘制边框
+        ctx.beginPath();
+        ctx.arc(35, 35, 30, 0, 2 * Math.PI);
+        ctx.strokeStyle = 'white';
+        ctx.lineWidth = 3;
+        ctx.stroke();
+
+        // 绘制车辆图标
+        ctx.fillStyle = 'white';
+        ctx.font = 'bold 20px Arial';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('🚗', 35, 30);
+
+        // 绘制车辆名称缩写（取前2个字）
+        ctx.font = '10px Arial';
+        ctx.fillText(carInfo.name.substring(0, 2), 35, 48);
+
+        return canvas.toDataURL();
+    }
+
+    // 创建简单标记（备用方法）
+    createSimpleMarker(location, carInfo) {
+        try {
+            // 使用DOMOverlay作为备用方案
+            const div = document.createElement('div');
+            div.style.cssText = `
+                width: 40px;
+                height: 40px;
+                background: ${carInfo.color || '#007AFF'};
+                border-radius: 50%;
+                border: 3px solid white;
+                box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                color: white;
+                font-size: 18px;
+                font-weight: bold;
+                position: absolute;
+                transform: translate(-50%, -50%);
+                z-index: 1000;
+                cursor: pointer;
+            `;
+            div.innerHTML = '🚗';
+            div.title = `${carInfo.name} (${carInfo.plate})`;
+
+            if (typeof TMap.DOMOverlay === 'function') {
+                const marker = new TMap.DOMOverlay({
+                    map: this.map,
+                    position: new TMap.LatLng(location.lat, location.lng),
+                    content: div
+                });
+
+                this.marker = marker;
+            } else {
+                // 最后的备用方案：直接在地图中心显示信息
+                this.setCenter(location);
+                this.showCenterInfo(carInfo, location);
+            }
+
+        } catch (error) {
+            console.error('备用标记创建失败:', error);
             this.setCenter(location);
         }
+    }
+
+    // 在地图中心显示车辆信息（最后的备用方案）
+    showCenterInfo(carInfo, location) {
+        const infoDiv = document.createElement('div');
+        infoDiv.style.cssText = `
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            z-index: 1000;
+            text-align: center;
+            min-width: 200px;
+        `;
+        infoDiv.innerHTML = `
+            <h3 style="margin: 0 0 10px 0; color: #333; font-size: 16px;">
+                🚗 ${carInfo.name}
+            </h3>
+            <p style="margin: 5px 0; color: #666; font-size: 14px;">
+                ${carInfo.plate}
+            </p>
+            <p style="margin: 5px 0; color: #999; font-size: 12px;">
+                点击关闭
+            </p>
+        `;
+
+        infoDiv.onclick = function() {
+            document.body.removeChild(infoDiv);
+        };
+
+        document.body.appendChild(infoDiv);
+
+        // 3秒后自动关闭
+        setTimeout(() => {
+            if (document.body.contains(infoDiv)) {
+                document.body.removeChild(infoDiv);
+            }
+        }, 3000);
     }
 
     // 创建标记内容
