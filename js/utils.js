@@ -263,6 +263,32 @@ const Utils = {
         }
     },
 
+    // JSONP请求工具（用于跨域API调用）
+    jsonpRequest: function(url) {
+        return new Promise((resolve, reject) => {
+            const script = document.createElement('script');
+            const callbackName = 'jsonpCallback_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+
+            window[callbackName] = function(data) {
+                delete window[callbackName];
+                document.body.removeChild(script);
+                resolve(data);
+            };
+
+            script.onerror = function() {
+                delete window[callbackName];
+                document.body.removeChild(script);
+                reject(new Error('JSONP请求失败'));
+            };
+
+            // 添加callback参数
+            const separator = url.includes('?') ? '&' : '?';
+            script.src = `${url}${separator}output=jsonp&callback=${callbackName}`;
+
+            document.body.appendChild(script);
+        });
+    },
+
     // HTTP请求工具
     request: async function(url, options = {}) {
         const defaultOptions = {

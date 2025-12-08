@@ -353,9 +353,8 @@ class MapManager {
 
             const url = `${API_CONFIG.tencentMap.geocoder}?${params.toString()}`;
 
-            const data = await Utils.request(url, {
-                timeout: API_CONFIG.timeout
-            });
+            // 使用JSONP方式避免跨域问题
+            const data = await Utils.jsonpRequest(url);
 
             if (data.status === 0 && data.result) {
                 const address = data.result.address || '位置未知';
@@ -380,6 +379,7 @@ class MapManager {
                 type: 'geocoding',
                 location: location
             });
+            console.error('地址解析错误详情:', error);
             return '地址解析失败';
         }
     }

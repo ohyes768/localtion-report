@@ -161,20 +161,30 @@
         function testGeocoder() {
             updateInfo('正在测试地址解析...', 'debug');
 
-            const url = `https://apis.map.qq.com/ws/geocoder/v1/?location=39.908692,116.397477&key=67PBZ-AWOWQ-TTW5A-BTI3M-BNMHH-2YBXZ`;
+            // 使用JSONP方式避免跨域问题
+            const script = document.createElement('script');
+            const callbackName = 'geocoderCallback_' + Date.now();
 
-            fetch(url)
-                .then(response => response.json())
-                .then(data => {
-                    if (data.status === 0) {
-                        updateInfo(`地址解析成功: ${data.result.address}`, 'success');
-                    } else {
-                        updateInfo(`地址解析失败: ${data.message}`, 'error');
-                    }
-                })
-                .catch(error => {
-                    updateInfo(`地址解析请求失败: ${error.message}`, 'error');
-                });
+            window[callbackName] = function(data) {
+                delete window[callbackName];
+                document.body.removeChild(script);
+
+                if (data.status === 0) {
+                    updateInfo(`地址解析成功: ${data.result.address}`, 'success');
+                } else {
+                    updateInfo(`地址解析失败: ${data.message}`, 'error');
+                }
+            };
+
+            script.onerror = function() {
+                delete window[callbackName];
+                document.body.removeChild(script);
+                updateInfo('地址解析脚本加载失败', 'error');
+            };
+
+            script.src = `https://apis.map.qq.com/ws/geocoder/v1/?location=39.908692,116.397477&key=67PBZ-AWOWQ-TTW5A-BTI3M-BNMHH-2YBXZ&output=jsonp&callback=${callbackName}`;
+
+            document.body.appendChild(script);
         }
 
         // 页面加载完成后初始化
