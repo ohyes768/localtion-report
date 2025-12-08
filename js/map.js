@@ -481,8 +481,6 @@ class MapManager {
   
     // 使用腾讯地图静态图API生成截图
     async _generateStaticMapScreenshot(location, carInfo) {
-        console.log('🗺️ 使用小尺寸静态地图方案生成截图...');
-
         // 使用成功的小尺寸配置
         const params = new URLSearchParams({
             center: `${location.lat},${location.lng}`,
@@ -496,88 +494,17 @@ class MapManager {
 
         const staticMapUrl = `${API_CONFIG.tencentMap.staticMap}?${params.toString()}`;
 
-        console.log('🗺️ 小尺寸地图 URL:', staticMapUrl);
-        console.log('🔑 API Key:', MAP_CONFIG.key);
-        console.log('🌐 当前域名:', window.location.origin);
-        console.log('📍 请求位置:', location.lat, location.lng);
-
         try {
-            // 验证图片是否可加载
-            const success = await this._testImageUrl(staticMapUrl);
-
-            if (success) {
-                console.log('✅ 小尺寸静态地图加载成功');
-                // 创建带车辆标识的增强截图
-                return await this._createEnhancedScreenshot(staticMapUrl, location, carInfo);
-            } else {
-                throw new Error('小尺寸地图加载失败');
-            }
-
+            // 直接返回URL，因为已验证小尺寸API可用
+            return await this._createEnhancedScreenshot(staticMapUrl, location, carInfo);
         } catch (error) {
-            console.error('❌ 静态地图生成失败:', error.message);
             throw new Error('静态地图API调用失败: ' + error.message);
         }
     }
 
-    // 测试图片URL是否可以加载（确保Referer头）
-    async _testImageUrl(url) {
-        try {
-            // 方案1：使用fetch测试（带Referer）
-            const response = await fetch(url, {
-                mode: 'cors',
-                credentials: 'same-origin',
-                headers: {
-                    'Referer': window.location.origin
-                }
-            });
-
-            if (response.ok) {
-                console.log('✅ Fetch方式测试成功');
-                return true;
-            } else {
-                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-            }
-
-        } catch (fetchError) {
-            console.warn('Fetch测试失败，尝试传统方式:', fetchError.message);
-
-            // 方案2：传统图片加载测试
-            return new Promise((resolve, reject) => {
-                const img = new Image();
-                // 不设置crossOrigin，让浏览器自动发送Referer
-
-                const timeout = setTimeout(() => {
-                    reject(new Error('图片加载超时'));
-                }, 8000);
-
-                img.onload = () => {
-                    clearTimeout(timeout);
-                    console.log(`图片加载成功: ${img.naturalWidth}x${img.naturalHeight}`);
-                    resolve(true);
-                };
-
-                img.onerror = (error) => {
-                    clearTimeout(timeout);
-                    console.warn('传统方式图片加载失败:', error);
-
-                    // 检查是否是具体的错误图片
-                    if (img.naturalWidth > 0) {
-                        console.warn(`图片加载但有错误: ${img.naturalWidth}x${img.naturalHeight}`);
-                        resolve(true); // 某些情况下错误图片仍然可用
-                    } else {
-                        reject(new Error('图片加载失败'));
-                    }
-                };
-
-                img.src = url;
-            });
-        }
-    }
-
-    // 创建增强版截图（直接在Canvas上添加车辆标识）
+  
+    // 创建增强版截图（直接返回腾讯地图URL）
     async _createEnhancedScreenshot(baseMapUrl, location, carInfo) {
-        console.log('🎨 直接使用Canvas拼接车辆标识...');
-
         // 直接返回baseMapUrl，让浏览器处理图片显示
         // 在分享页面通过CSS添加车辆标识
         return baseMapUrl;
@@ -585,72 +512,7 @@ class MapManager {
 
     
   
-    // 加载图片为Canvas对象（带Referer头）
-    async _loadImageAsCanvas(url) {
-        try {
-            // 方案1：使用fetch获取图片数据（确保Referer头）
-            const response = await fetch(url, {
-                mode: 'cors',
-                credentials: 'same-origin',
-                headers: {
-                    'Referer': window.location.origin
-                }
-            });
-
-            if (!response.ok) {
-                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-            }
-
-            const blob = await response.blob();
-            const imgUrl = URL.createObjectURL(blob);
-
-            // 创建图片对象
-            const img = new Image();
-
-            return new Promise((resolve, reject) => {
-                img.onload = () => {
-                    const canvas = document.createElement('canvas');
-                    canvas.width = img.naturalWidth;
-                    canvas.height = img.naturalHeight;
-                    const ctx = canvas.getContext('2d');
-                    ctx.drawImage(img, 0, 0);
-
-                    // 清理对象URL
-                    URL.revokeObjectURL(imgUrl);
-                    resolve(canvas);
-                };
-
-                img.onerror = (error) => {
-                    URL.revokeObjectURL(imgUrl);
-                    reject(new Error('图片加载失败'));
-                };
-
-                img.src = imgUrl;
-            });
-
-        } catch (fetchError) {
-            console.warn('Fetch方式失败，尝试传统方式:', fetchError.message);
-
-            // 方案2：传统方式（不带crossOrigin）
-            return new Promise((resolve, reject) => {
-                const img = new Image();
-                // 不设置crossOrigin，让浏览器自动发送Referer
-
-                img.onload = () => {
-                    const canvas = document.createElement('canvas');
-                    canvas.width = img.naturalWidth;
-                    canvas.height = img.naturalHeight;
-                    const ctx = canvas.getContext('2d');
-                    ctx.drawImage(img, 0, 0);
-                    resolve(canvas);
-                };
-
-                img.onerror = reject;
-                img.src = url;
-            });
-        }
-    }
-
+    
     // 处理所有尝试都失败的情况
     async _handleAllAttemptsFailed(location, carInfo) {
         console.error('🚨 所有腾讯地图API配置都失败');
