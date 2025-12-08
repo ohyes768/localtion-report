@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Referer头修复测试</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        .btn {
+            background: #007AFF;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            cursor: pointer;
+            margin: 10px 5px;
+            font-size: 16px;
+        }
+        .btn:hover {
+            background: #0056D6;
+        }
+        .test-result {
+            margin: 10px 0;
+            padding: 15px;
+            border-radius: 8px;
+            border: 1px solid #ddd;
+        }
+        .success {
+            background: #d4edda;
+            border-color: #c3e6cb;
+            color: #155724;
+        }
+        .error {
+            background: #f8d7da;
+            border-color: #f5c6cb;
+            color: #721c24;
+        }
+        .info {
+            background: #d1ecf1;
+            border-color: #bee5eb;
+            color: #0c5460;
+        }
+        .log {
+            background: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 5px;
+            padding: 15px;
+            margin: 10px 0;
+            font-family: monospace;
+            font-size: 12px;
+            white-space: pre-wrap;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        .map-test {
+            text-align: center;
+            margin: 20px 0;
+        }
+        .map-test img {
+            max-width: 100%;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔧 Referer头修复测试</h1>
+        <p>测试腾讯地图API的Referer头修复效果</p>
+    </div>
+
+    <div class="container">
+        <h2>📋 当前环境信息</h2>
+        <div id="env-info" class="test-result info">
+            加载中...
+        </div>
+    </div>
+
+    <div class="container">
+        <h2>🧪 API测试</h2>
+        <button class="btn" onclick="testFetchWithReferer()">测试Fetch + Referer</button>
+        <button class="btn" onclick="testDirectImage()">测试直接图片加载</button>
+        <button class="btn" onclick="testCanvasLoad()">测试Canvas加载</button>
+        <button class="btn" onclick="testFullProcess()">测试完整流程</button>
+
+        <div id="test-results"></div>
+    </div>
+
+    <div class="container">
+        <h2>🗺️ 地图展示测试</h2>
+        <div class="map-test" id="map-display">
+            <p>点击上方按钮测试地图加载</p>
+        </div>
+    </div>
+
+    <div class="container">
+        <h2>📝 测试日志</h2>
+        <button class="btn" onclick="clearLog()">清空日志</button>
+        <div id="log" class="log">等待测试...</div>
+    </div>
+
+    <script>
+        // 腾讯地图配置
+        const MAP_CONFIG = {
+            key: '67PBZ-AWOWQ-TTW5A-BTI3M-BNMHH-2YBXZ',
+            staticMapUrl: 'https://apis.map.qq.com/ws/staticmap/v2/',
+            testLocation: { lat: 39.908692, lng: 116.397477 }
+        };
+
+        // 日志功能
+        function log(message, type = 'info') {
+            const logElement = document.getElementById('log');
+            const timestamp = new Date().toLocaleTimeString();
+            const prefix = type === 'error' ? '❌' : type === 'success' ? '✅' : 'ℹ️';
+            logElement.textContent += `[${timestamp}] ${prefix} ${message}\n`;
+            logElement.scrollTop = logElement.scrollHeight;
+        }
+
+        function clearLog() {
+            document.getElementById('log').textContent = '日志已清空...\n';
+        }
+
+        // 显示环境信息
+        function showEnvInfo() {
+            const envInfo = `
+                <strong>当前域名:</strong> ${window.location.origin}<br>
+                <strong>协议:</strong> ${window.location.protocol}<br>
+                <strong>用户代理:</strong> ${navigator.userAgent.substring(0, 100)}...<br>
+                <strong>当前时间:</strong> ${new Date().toLocaleString()}
+            `;
+            document.getElementById('env-info').innerHTML = envInfo;
+            log(`环境: ${window.location.origin}`, 'info');
+        }
+
+        // 添加测试结果
+        function addTestResult(message, type = 'info') {
+            const resultsDiv = document.getElementById('test-results');
+            const resultDiv = document.createElement('div');
+            resultDiv.className = `test-result ${type}`;
+            resultDiv.innerHTML = message;
+            resultsDiv.appendChild(resultDiv);
+        }
+
+        // 测试1: Fetch + Referer头
+        async function testFetchWithReferer() {
+            log('开始测试 Fetch + Referer 头...', 'info');
+
+            const params = new URLSearchParams({
+                center: `${MAP_CONFIG.testLocation.lat},${MAP_CONFIG.testLocation.lng}`,
+                zoom: '16',
+                size: '300x200',
+                key: MAP_CONFIG.key,
+                _: Date.now()
+            });
+
+            const url = `${MAP_CONFIG.staticMapUrl}?${params}`;
+
+            try {
+                const response = await fetch(url, {
+                    mode: 'cors',
+                    credentials: 'same-origin',
+                    headers: {
+                        'Referer': window.location.origin
+                    }
+                });
+
+                log(`Fetch响应状态: ${response.status} ${response.statusText}`, 'info');
+
+                if (response.ok) {
+                    const blob = await response.blob();
+                    const imgUrl = URL.createObjectURL(blob);
+
+                    // 显示图片
+                    displayMapImage(imgUrl, 'Fetch + Referer 成功');
+                    addTestResult('✅ Fetch + Referer 测试成功', 'success');
+                    log('Fetch + Referer 测试成功', 'success');
+
+                    URL.revokeObjectURL(imgUrl);
+                } else {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+
+            } catch (error) {
+                addTestResult(`❌ Fetch + Referer 失败: ${error.message}`, 'error');
+                log(`Fetch + Referer 失败: ${error.message}`, 'error');
+            }
+        }
+
+        // 测试2: 直接图片加载
+        async function testDirectImage() {
+            log('开始测试直接图片加载...', 'info');
+
+            const params = new URLSearchParams({
+                center: `${MAP_CONFIG.testLocation.lat},${MAP_CONFIG.testLocation.lng}`,
+                zoom: '16',
+                size: '300x200',
+                key: MAP_CONFIG.key,
+                _: Date.now()
+            });
+
+            const url = `${MAP_CONFIG.staticMapUrl}?${params}`;
+
+            return new Promise((resolve, reject) => {
+                const img = new Image();
+                // 不设置crossOrigin，让浏览器自动发送Referer
+
+                const timeout = setTimeout(() => {
+                    reject(new Error('图片加载超时'));
+                }, 10000);
+
+                img.onload = () => {
+                    clearTimeout(timeout);
+                    log(`直接图片加载成功: ${img.naturalWidth}x${img.naturalHeight}`, 'success');
+                    displayMapImage(url, '直接图片加载成功');
+                    addTestResult('✅ 直接图片加载成功', 'success');
+                    resolve(true);
+                };
+
+                img.onerror = (error) => {
+                    clearTimeout(timeout);
+                    const errorMsg = img.naturalWidth > 0 ?
+                        `图片加载但有错误: ${img.naturalWidth}x${img.naturalHeight}` :
+                        '图片加载失败';
+
+                    log(`直接图片加载失败: ${errorMsg}`, 'error');
+                    addTestResult(`❌ 直接图片加载失败: ${errorMsg}`, 'error');
+                    reject(new Error(errorMsg));
+                };
+
+                log(`尝试加载URL: ${url}`, 'info');
+                img.src = url;
+            });
+        }
+
+        // 测试3: Canvas加载
+        async function testCanvasLoad() {
+            log('开始测试Canvas加载...', 'info');
+
+            const params = new URLSearchParams({
+                center: `${MAP_CONFIG.testLocation.lat},${MAP_CONFIG.testLocation.lng}`,
+                zoom: '16',
+                size: '300x200',
+                key: MAP_CONFIG.key,
+                _: Date.now()
+            });
+
+            const url = `${MAP_CONFIG.staticMapUrl}?${params}`;
+
+            try {
+                // 先用fetch获取图片
+                const response = await fetch(url, {
+                    mode: 'cors',
+                    credentials: 'same-origin',
+                    headers: {
+                        'Referer': window.location.origin
+                    }
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+
+                const blob = await response.blob();
+                const imgUrl = URL.createObjectURL(blob);
+
+                // 加载到Canvas
+                const img = new Image();
+                await new Promise((resolve, reject) => {
+                    img.onload = resolve;
+                    img.onerror = reject;
+                    img.src = imgUrl;
+                });
+
+                // 创建Canvas并绘制
+                const canvas = document.createElement('canvas');
+                canvas.width = img.naturalWidth;
+                canvas.height = img.naturalHeight;
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(img, 0, 0);
+
+                // 显示Canvas
+                displayMapImage(canvas.toDataURL(), 'Canvas加载成功');
+                addTestResult('✅ Canvas加载成功', 'success');
+                log('Canvas加载成功', 'success');
+
+                URL.revokeObjectURL(imgUrl);
+
+            } catch (error) {
+                addTestResult(`❌ Canvas加载失败: ${error.message}`, 'error');
+                log(`Canvas加载失败: ${error.message}`, 'error');
+            }
+        }
+
+        // 测试4: 完整流程
+        async function testFullProcess() {
+            log('开始测试完整流程...', 'info');
+
+            try {
+                // 步骤1: 构建API URL
+                const params = new URLSearchParams({
+                    center: `${MAP_CONFIG.testLocation.lat},${MAP_CONFIG.testLocation.lng}`,
+                    zoom: '16',
+                    size: '300x200',
+                    key: MAP_CONFIG.key,
+                    _: Date.now()
+                });
+
+                const staticMapUrl = `${MAP_CONFIG.staticMapUrl}?${params}`;
+                log(`步骤1: 构建URL完成`, 'success');
+
+                // 步骤2: 测试URL
+                const response = await fetch(staticMapUrl, {
+                    headers: {
+                        'Referer': window.location.origin
+                    }
+                });
+
+                if (!response.ok) {
+                    throw new Error(`API调用失败: ${response.status}`);
+                }
+                log('步骤2: API调用成功', 'success');
+
+                // 步骤3: 获取图片数据
+                const blob = await response.blob();
+                const imgUrl = URL.createObjectURL(blob);
+                log('步骤3: 图片数据获取成功', 'success');
+
+                // 步骤4: 创建Canvas增强
+                const img = await new Promise((resolve, reject) => {
+                    const tempImg = new Image();
+                    tempImg.onload = () => resolve(tempImg);
+                    tempImg.onerror = reject;
+                    tempImg.src = imgUrl;
+                });
+
+                const canvas = document.createElement('canvas');
+                canvas.width = 600;
+                canvas.height = 400;
+                const ctx = canvas.getContext('2d');
+
+                // 绘制背景
+                ctx.fillStyle = '#f0f0f0';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+                // 绘制地图
+                ctx.drawImage(img, 150, 100, 300, 200);
+
+                // 添加标记
+                ctx.fillStyle = '#FF0000';
+                ctx.strokeStyle = 'white';
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.arc(300, 200, 10, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.stroke();
+
+                // 显示结果
+                displayMapImage(canvas.toDataURL(), '完整流程成功');
+                addTestResult('✅ 完整流程测试成功', 'success');
+                log('完整流程测试成功', 'success');
+
+                URL.revokeObjectURL(imgUrl);
+
+            } catch (error) {
+                addTestResult(`❌ 完整流程失败: ${error.message}`, 'error');
+                log(`完整流程失败: ${error.message}`, 'error');
+            }
+        }
+
+        // 显示地图图片
+        function displayMapImage(imageSrc, title) {
+            const mapDisplay = document.getElementById('map-display');
+            mapDisplay.innerHTML = `
+                <h3>${title}</h3>
+                <img src="${imageSrc}" alt="测试地图" />
+                <p><small>图片加载完成</small></p>
+            `;
+        }
+
+        // 页面加载时初始化
+        document.addEventListener('DOMContentLoaded', () => {
+            showEnvInfo();
+            log('Referer头修复测试页面已加载', 'info');
+        });
+    </script>
+</body>
+</html>

@@ -519,36 +519,59 @@ class MapManager {
         }
     }
 
-    // 测试图片URL是否可以加载
+    // 测试图片URL是否可以加载（确保Referer头）
     async _testImageUrl(url) {
-        return new Promise((resolve, reject) => {
-            const img = new Image();
-
-            // 设置较短的超时时间
-            const timeout = setTimeout(() => {
-                reject(new Error('图片加载超时'));
-            }, 8000);
-
-            img.onload = () => {
-                clearTimeout(timeout);
-                console.log(`图片加载成功: ${img.naturalWidth}x${img.naturalHeight}`);
-                resolve(true);
-            };
-
-            img.onerror = (error) => {
-                clearTimeout(timeout);
-
-                // 检查是否是具体的错误图片
-                if (img.naturalWidth > 0) {
-                    console.warn(`图片加载但有错误: ${img.naturalWidth}x${img.naturalHeight}`);
-                    resolve(true); // 某些情况下错误图片仍然可用
-                } else {
-                    reject(new Error('图片加载失败'));
+        try {
+            // 方案1：使用fetch测试（带Referer）
+            const response = await fetch(url, {
+                mode: 'cors',
+                credentials: 'same-origin',
+                headers: {
+                    'Referer': window.location.origin
                 }
-            };
+            });
 
-            img.src = url;
-        });
+            if (response.ok) {
+                console.log('✅ Fetch方式测试成功');
+                return true;
+            } else {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+
+        } catch (fetchError) {
+            console.warn('Fetch测试失败，尝试传统方式:', fetchError.message);
+
+            // 方案2：传统图片加载测试
+            return new Promise((resolve, reject) => {
+                const img = new Image();
+                // 不设置crossOrigin，让浏览器自动发送Referer
+
+                const timeout = setTimeout(() => {
+                    reject(new Error('图片加载超时'));
+                }, 8000);
+
+                img.onload = () => {
+                    clearTimeout(timeout);
+                    console.log(`图片加载成功: ${img.naturalWidth}x${img.naturalHeight}`);
+                    resolve(true);
+                };
+
+                img.onerror = (error) => {
+                    clearTimeout(timeout);
+                    console.warn('传统方式图片加载失败:', error);
+
+                    // 检查是否是具体的错误图片
+                    if (img.naturalWidth > 0) {
+                        console.warn(`图片加载但有错误: ${img.naturalWidth}x${img.naturalHeight}`);
+                        resolve(true); // 某些情况下错误图片仍然可用
+                    } else {
+                        reject(new Error('图片加载失败'));
+                    }
+                };
+
+                img.src = url;
+            });
+        }
     }
 
     // 创建增强版截图（在小尺寸地图上添加车辆标识）
@@ -722,24 +745,70 @@ class MapManager {
     }
 
   
-    // 加载图片为Canvas对象
+    // 加载图片为Canvas对象（带Referer头）
     async _loadImageAsCanvas(url) {
-        return new Promise((resolve, reject) => {
+        try {
+            // 方案1：使用fetch获取图片数据（确保Referer头）
+            const response = await fetch(url, {
+                mode: 'cors',
+                credentials: 'same-origin',
+                headers: {
+                    'Referer': window.location.origin
+                }
+            });
+
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+
+            const blob = await response.blob();
+            const imgUrl = URL.createObjectURL(blob);
+
+            // 创建图片对象
             const img = new Image();
-            img.crossOrigin = 'anonymous';
 
-            img.onload = () => {
-                const canvas = document.createElement('canvas');
-                canvas.width = img.naturalWidth;
-                canvas.height = img.naturalHeight;
-                const ctx = canvas.getContext('2d');
-                ctx.drawImage(img, 0, 0);
-                resolve(canvas);
-            };
+            return new Promise((resolve, reject) => {
+                img.onload = () => {
+                    const canvas = document.createElement('canvas');
+                    canvas.width = img.naturalWidth;
+                    canvas.height = img.naturalHeight;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0);
 
-            img.onerror = reject;
-            img.src = url;
-        });
+                    // 清理对象URL
+                    URL.revokeObjectURL(imgUrl);
+                    resolve(canvas);
+                };
+
+                img.onerror = (error) => {
+                    URL.revokeObjectURL(imgUrl);
+                    reject(new Error('图片加载失败'));
+                };
+
+                img.src = imgUrl;
+            });
+
+        } catch (fetchError) {
+            console.warn('Fetch方式失败，尝试传统方式:', fetchError.message);
+
+            // 方案2：传统方式（不带crossOrigin）
+            return new Promise((resolve, reject) => {
+                const img = new Image();
+                // 不设置crossOrigin，让浏览器自动发送Referer
+
+                img.onload = () => {
+                    const canvas = document.createElement('canvas');
+                    canvas.width = img.naturalWidth;
+                    canvas.height = img.naturalHeight;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0);
+                    resolve(canvas);
+                };
+
+                img.onerror = reject;
+                img.src = url;
+            });
+        }
     }
 
     // 处理所有尝试都失败的情况
