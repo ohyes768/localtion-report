@@ -8,6 +8,7 @@ class MapManager {
         this.infoWindow = null;
         this.addressCache = new Map();
         this.retryCount = 0;
+        this.addressAPILimited = false; // 地址API配额限制标志
     }
 
     // 初始化地图
@@ -325,15 +326,20 @@ class MapManager {
         }
     }
 
-    // 逆地理编码获取地址
+    // 逆地理编码获取地址（带用量控制）
     async getAddressFromLocation(location) {
+        // 如果API配额已用完，直接返回坐标信息
+        if (this.addressAPILimited) {
+            return this.getCoordinateDisplay(location);
+        }
+
         if (!location) {
             return '位置未知';
         }
 
         const cacheKey = `${location.lat.toFixed(4)}_${location.lng.toFixed(4)}`;
 
-        // 检查缓存
+        // 检查内存缓存
         if (this.addressCache.has(cacheKey)) {
             const cached = this.addressCache.get(cacheKey);
             if (!Utils.storage.isPositionStale(cached.timestamp, CACHE_CONFIG.addressCacheTime)) {
@@ -344,11 +350,21 @@ class MapManager {
             }
         }
 
+        // 检查本地存储缓存
+        const storageKey = `address_${cacheKey}`;
+        const storageCache = Utils.storage.get(storageKey);
+        if (storageCache) {
+            if (APP_CONFIG.debug) {
+                console.log('使用本地缓存的地址:', storageCache.address);
+            }
+            return storageCache.address;
+        }
+
         try {
             const params = new URLSearchParams({
                 location: `${location.lat},${location.lng}`,
                 key: MAP_CONFIG.key,
-                get_poi: 1
+                get_poi: 0  // 关闭POI查询减少数据量
             });
 
             const url = `${API_CONFIG.tencentMap.geocoder}?${params.toString()}`;
@@ -359,11 +375,14 @@ class MapManager {
             if (data.status === 0 && data.result) {
                 const address = data.result.address || '位置未知';
 
-                // 缓存结果
+                // 缓存到内存
                 this.addressCache.set(cacheKey, {
                     address: address,
                     timestamp: Date.now()
                 });
+
+                // 缓存到本地存储（30分钟）
+                Utils.storage.set(storageKey, { address: address }, 30 * 60 * 1000);
 
                 if (APP_CONFIG.debug) {
                     console.log('获取到新地址:', address);
@@ -371,6 +390,14 @@ class MapManager {
 
                 return address;
             } else {
+                // 检查是否是配额限制错误
+                if (data.message && data.message.includes('limit') || data.message.includes('quota')) {
+                    this.addressAPILimited = true;
+                    if (APP_CONFIG.debug) {
+                        console.warn('地址解析API达到限制，切换到坐标显示模式');
+                    }
+                    return this.getCoordinateDisplay(location);
+                }
                 throw new Error(data.message || '地址解析失败');
             }
 
@@ -380,8 +407,16 @@ class MapManager {
                 location: location
             });
             console.error('地址解析错误详情:', error);
-            return '地址解析失败';
+            return this.getCoordinateDisplay(location);
         }
+    }
+
+    // 获取坐标显示格式
+    getCoordinateDisplay(location) {
+        const lat = location.lat.toFixed(6);
+        const lng = location.lng.toFixed(6);
+        const accuracy = location.accuracy ? Math.round(location.accuracy) : '未知';
+        return `坐标: ${lat}, ${lng} (精度: ${accuracy}米)`;
     }
 
     // 搜索周边POI
