@@ -71,6 +71,7 @@ class VehicleLocationApp {
         // 记录设备信息
         const deviceInfo = Utils.getDeviceInfo();
         Utils.storage.set('device_info', deviceInfo, 24 * 60 * 60 * 1000); // 缓存24小时
+    }
 
     // 初始化UI
     initUI() {
