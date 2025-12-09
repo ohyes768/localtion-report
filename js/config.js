@@ -51,7 +51,24 @@ const APP_CONFIG = {
     title: '家庭车辆位置分享系统',
     version: '1.0.0',
     debug: false,
-    locationTimeout: 20000
+    locationTimeout: 20000,
+    // 分析功能配置
+    analysis: {
+        enableLocationAnalysis: true,
+        showParkingRecommendation: true,
+        showLocationHistory: false
+    }
+};
+
+// API配置
+const API_CONFIG = {
+    // 腾讯地图API
+    tencentMap: {
+        baseUrl: 'https://apis.map.qq.com',
+        geocoder: 'https://apis.map.qq.com/ws/geocoder/v1/',
+        staticMap: 'https://apis.map.qq.com/ws/staticmap/v2/'
+    },
+    timeout: 8000
 };
 
 // 错误信息配置
