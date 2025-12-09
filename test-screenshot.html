@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>截图功能测试</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+
+        .test-container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        .test-area {
+            border: 2px dashed #ccc;
+            height: 400px;
+            margin: 20px 0;
+            position: relative;
+            background: linear-gradient(45deg, #f0f0f0 25%, transparent 25%, transparent 75%, #f0f0f0 75%, #f0f0f0),
+                        linear-gradient(45deg, #f0f0f0 25%, transparent 25%, transparent 75%, #f0f0f0 75%, #f0f0f0);
+            background-size: 20px 20px;
+            background-position: 0 0, 10px 10px;
+        }
+
+        .test-content {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            color: #666;
+        }
+
+        .btn {
+            background: #007AFF;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+            font-size: 16px;
+        }
+
+        .btn:hover {
+            background: #0056D6;
+        }
+
+        .btn.success {
+            background: #34C759;
+        }
+
+        .btn.success:hover {
+            background: #2FA54E;
+        }
+
+        .preview {
+            margin-top: 20px;
+            text-align: center;
+        }
+
+        .preview img {
+            max-width: 100%;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        .log {
+            background: #f8f8f8;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            padding: 10px;
+            margin-top: 20px;
+            font-family: monospace;
+            font-size: 12px;
+            max-height: 200px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+        }
+
+        .info {
+            background: #e3f2fd;
+            border: 1px solid #2196F3;
+            border-radius: 5px;
+            padding: 15px;
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <h1>📸 截图功能测试页面</h1>
+
+        <div class="info">
+            <strong>测试说明：</strong><br>
+            1. 点击"使用html2canvas截图"测试完整功能<br>
+            2. 点击"使用备用方案截图"测试Canvas绘制<br>
+            3. 查看控制台日志了解详细执行过程<br>
+            4. 如果html2canvas失败，会自动使用备用方案
+        </div>
+
+        <div class="test-controls">
+            <button class="btn" onclick="testHtml2Canvas()">🖼️ 使用html2canvas截图</button>
+            <button class="btn success" onclick="testFallback()">🎨 使用备用方案截图</button>
+            <button class="btn" onclick="clearPreview()">🗑️ 清除预览</button>
+            <button class="btn" onclick="clearLog()">📋 清除日志</button>
+        </div>
+
+        <div class="test-area" id="test-area">
+            <div class="test-content">
+                <h3>🗺️ 地图测试区域</h3>
+                <p>这是一个模拟的地图区域</p>
+                <div style="font-size: 48px; margin: 20px 0;">🚗</div>
+                <p>测试车辆: 奥迪Q5 (浙ALQ598)</p>
+                <p>位置: 浙江省杭州市滨江区</p>
+                <p>时间: <span id="current-time"></span></p>
+            </div>
+        </div>
+
+        <div class="preview" id="preview"></div>
+
+        <div class="log" id="log">日志输出区域...\n</div>
+    </div>
+
+    <script>
+        // 测试数据
+        const testData = {
+            name: '奥迪Q5',
+            plate: '浙ALQ598',
+            address: '浙江省杭州市滨江区',
+            color: '#45B7D1',
+            time: new Date().toLocaleString('zh-CN')
+        };
+
+        // 日志函数
+        function log(message) {
+            const logDiv = document.getElementById('log');
+            const timestamp = new Date().toLocaleTimeString();
+            logDiv.textContent += `[${timestamp}] ${message}\n`;
+            logDiv.scrollTop = logDiv.scrollHeight;
+            console.log(message);
+        }
+
+        // 清除日志
+        function clearLog() {
+            document.getElementById('log').textContent = '日志已清除...\n';
+        }
+
+        // 更新时间显示
+        function updateTime() {
+            document.getElementById('current-time').textContent = new Date().toLocaleString('zh-CN');
+        }
+        setInterval(updateTime, 1000);
+        updateTime();
+
+        // 清除预览
+        function clearPreview() {
+            document.getElementById('preview').innerHTML = '';
+        }
+
+        // 显示预览
+        function showPreview(canvas, title) {
+            const previewDiv = document.getElementById('preview');
+            const imageDataUrl = canvas.toDataURL('image/png');
+
+            previewDiv.innerHTML = `
+                <h3>${title}</h3>
+                <img src="${imageDataUrl}" alt="截图预览">
+                <p>
+                    <button class="btn success" onclick="downloadImage('${imageDataUrl}', 'screenshot.png')">💾 下载图片</button>
+                    <button class="btn" onclick="copyImageUrl('${imageDataUrl}')">📋 复制URL</button>
+                </p>
+                <p><small>图片大小: ${Math.round(imageDataUrl.length / 1024)} KB</small></p>
+            `;
+
+            log(`✅ ${title} - Canvas尺寸: ${canvas.width}x${canvas.height}, 图片大小: ${Math.round(imageDataUrl.length / 1024)} KB`);
+        }
+
+        // 下载图片
+        function downloadImage(dataUrl, filename) {
+            const link = document.createElement('a');
+            link.download = filename;
+            link.href = dataUrl;
+            link.click();
+            log(`📥 图片已下载: ${filename}`);
+        }
+
+        // 复制图片URL
+        async function copyImageUrl(dataUrl) {
+            try {
+                await navigator.clipboard.writeText(dataUrl);
+                log('📋 图片URL已复制到剪贴板');
+            } catch (error) {
+                log(`❌ 复制失败: ${error.message}`);
+            }
+        }
+
+        // 测试html2canvas
+        async function testHtml2Canvas() {
+            log('🔍 开始测试html2canvas...');
+
+            try {
+                // 检查是否已加载html2canvas
+                if (!window.html2canvas) {
+                    log('📦 正在加载html2canvas库...');
+                    await loadHtml2Canvas();
+                }
+
+                log('📸 开始截图...');
+                const testArea = document.getElementById('test-area');
+
+                const canvas = await html2canvas(testArea, {
+                    useCORS: true,
+                    allowTaint: false,
+                    scale: 1,
+                    backgroundColor: '#ffffff',
+                    logging: false
+                });
+
+                // 添加水印
+                addWatermark(canvas);
+
+                showPreview(canvas, 'html2canvas截图结果');
+                log('✅ html2canvas截图成功');
+
+            } catch (error) {
+                log(`❌ html2canvas截图失败: ${error.message}`);
+                log('🔄 自动切换到备用方案...');
+                testFallback();
+            }
+        }
+
+        // 测试备用方案
+        async function testFallback() {
+            log('🎨 开始测试备用截图方案...');
+
+            try {
+                const testArea = document.getElementById('test-area');
+                const canvas = document.createElement('canvas');
+                const ctx = canvas.getContext('2d');
+
+                const width = testArea.offsetWidth;
+                const height = testArea.offsetHeight;
+
+                canvas.width = width;
+                canvas.height = height;
+
+                log(`📐 Canvas尺寸: ${width}x${height}`);
+
+                // 绘制背景
+                ctx.fillStyle = '#ffffff';
+                ctx.fillRect(0, 0, width, height);
+
+                // 绘制测试内容
+                ctx.fillStyle = '#666';
+                ctx.font = '24px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText('地图测试区域', width / 2, height / 2 - 50);
+
+                ctx.font = '48px Arial';
+                ctx.fillText('🚗', width / 2, height / 2);
+
+                ctx.font = '16px Arial';
+                ctx.fillText(`${testData.name} (${testData.plate})`, width / 2, height / 2 + 50);
+                ctx.fillText(testData.address, width / 2, height / 2 + 80);
+                ctx.fillText(testData.time, width / 2, height / 2 + 110);
+
+                // 添加水印
+                addWatermark(canvas);
+
+                showPreview(canvas, '备用方案截图结果');
+                log('✅ 备用方案截图成功');
+
+            } catch (error) {
+                log(`❌ 备用方案截图失败: ${error.message}`);
+            }
+        }
+
+        // 添加水印
+        function addWatermark(canvas) {
+            const ctx = canvas.getContext('2d');
+
+            const watermark = `${testData.name} (${testData.plate})\n📍 ${testData.address}\n🕒 ${testData.time}`;
+            const lines = watermark.split('\n');
+
+            // 设置水印样式
+            ctx.font = '12px Arial';
+            ctx.textAlign = 'left';
+
+            const padding = 15;
+            const lineHeight = 18;
+            const watermarkHeight = lines.length * lineHeight + padding * 2;
+            const watermarkWidth = 320;
+
+            const y = canvas.height - watermarkHeight - 20;
+
+            // 添加背景
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.95)';
+            ctx.fillRect(15, y - padding, watermarkWidth, watermarkHeight);
+
+            // 添加边框
+            ctx.strokeStyle = 'rgba(0, 0, 0, 0.1)';
+            ctx.lineWidth = 1;
+            ctx.strokeRect(15, y - padding, watermarkWidth, watermarkHeight);
+
+            // 绘制文字
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
+            lines.forEach((line, index) => {
+                ctx.fillText(line, 25, y + index * lineHeight);
+            });
+        }
+
+        // 加载html2canvas
+        function loadHtml2Canvas() {
+            return new Promise((resolve, reject) => {
+                if (window.html2canvas) {
+                    resolve();
+                    return;
+                }
+
+                const script = document.createElement('script');
+                script.src = 'https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js';
+                script.onload = () => {
+                    log('✅ html2canvas库加载成功');
+                    resolve();
+                };
+                script.onerror = () => {
+                    log('❌ html2canvas库加载失败');
+                    reject(new Error('html2canvas加载失败'));
+                };
+                document.head.appendChild(script);
+            });
+        }
+
+        // 页面加载时的初始化
+        document.addEventListener('DOMContentLoaded', function() {
+            log('🚀 截图功能测试页面已加载');
+            log('💡 请点击上方按钮开始测试');
+
+            // 预加载html2canvas
+            loadHtml2Canvas().catch(() => {
+                log('⚠️ html2canvas预加载失败，将在使用时重试');
+            });
+        });
+    </script>
+</body>
+</html>
