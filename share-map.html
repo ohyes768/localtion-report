@@ -83,6 +83,15 @@
             100% { opacity: 1; }
         }
 
+        .screenshot-btn {
+            background: #FF3B30;
+            color: white;
+        }
+
+        .screenshot-btn:hover {
+            background: #E6342A;
+        }
+
         .debug-btn {
             background: #5856D6;
             color: white;
@@ -211,6 +220,7 @@
     <div id="map-controls" class="map-controls" style="display: none;">
         <button class="control-btn back-btn" onclick="goBack()">🔙 返回</button>
         <button class="control-btn location-btn" onclick="getCurrentLocation()">📍 定位</button>
+        <button class="control-btn screenshot-btn" onclick="captureAndShareScreenshot()">📸 截图分享</button>
         <button class="control-btn debug-btn" onclick="toggleCoordinateDebug()">🔍 调试</button>
         <button class="control-btn" onclick="zoomIn()">放大</button>
         <button class="control-btn" onclick="zoomOut()">缩小</button>
@@ -1502,6 +1512,176 @@
                 script.onerror = reject;
                 document.head.appendChild(script);
             });
+        }
+
+        // 截图并分享功能
+        async function captureAndShareScreenshot() {
+            try {
+                showLocationToast('正在生成截图...', 'info');
+
+                // 生成截图
+                const screenshotDataUrl = await generateSmartScreenshot();
+
+                if (screenshotDataUrl) {
+                    // 显示分享选项
+                    showShareDialog(screenshotDataUrl);
+                } else {
+                    throw new Error('截图生成失败');
+                }
+
+            } catch (error) {
+                console.error('截图分享失败:', error);
+                showLocationToast('截图失败: ' + error.message, 'error');
+            }
+        }
+
+        // 显示分享对话框
+        function showShareDialog(imageDataUrl) {
+            // 创建分享对话框
+            const dialog = document.createElement('div');
+            dialog.style.cssText = `
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background: rgba(0,0,0,0.8);
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                z-index: 10000;
+            `;
+
+            const content = document.createElement('div');
+            content.style.cssText = `
+                background: white;
+                padding: 20px;
+                border-radius: 10px;
+                max-width: 90%;
+                max-height: 90%;
+                overflow: auto;
+                text-align: center;
+            `;
+
+            content.innerHTML = `
+                <h3 style="margin: 0 0 15px 0; color: #333;">📸 地图截图</h3>
+                <img src="${imageDataUrl}" style="max-width: 100%; max-height: 50vh; border-radius: 8px; margin-bottom: 15px;" />
+                <div style="display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;">
+                    <button onclick="downloadScreenshot('${imageDataUrl}')" style="
+                        background: #007AFF;
+                        color: white;
+                        border: none;
+                        padding: 10px 20px;
+                        border-radius: 6px;
+                        cursor: pointer;
+                        font-size: 14px;
+                    ">💾 保存图片</button>
+                    <button onclick="copyScreenshotToClipboard('${imageDataUrl}')" style="
+                        background: #34C759;
+                        color: white;
+                        border: none;
+                        padding: 10px 20px;
+                        border-radius: 6px;
+                        cursor: pointer;
+                        font-size: 14px;
+                    ">📋 复制图片</button>
+                    <button onclick="shareScreenshot('${imageDataUrl}')" style="
+                        background: #FF9500;
+                        color: white;
+                        border: none;
+                        padding: 10px 20px;
+                        border-radius: 6px;
+                        cursor: pointer;
+                        font-size: 14px;
+                    ">📤 分享</button>
+                    <button onclick="this.closest('div').parentElement.remove()" style="
+                        background: #8E8E93;
+                        color: white;
+                        border: none;
+                        padding: 10px 20px;
+                        border-radius: 6px;
+                        cursor: pointer;
+                        font-size: 14px;
+                    ">❌ 关闭</button>
+                </div>
+            `;
+
+            dialog.appendChild(content);
+            document.body.appendChild(dialog);
+
+            // 点击背景关闭
+            dialog.addEventListener('click', function(e) {
+                if (e.target === dialog) {
+                    dialog.remove();
+                }
+            });
+        }
+
+        // 下载截图
+        function downloadScreenshot(dataUrl) {
+            const link = document.createElement('a');
+            link.download = `车辆位置截图_${new Date().toLocaleString('zh-CN').replace(/[\/:]/g, '-')}.png`;
+            link.href = dataUrl;
+            link.click();
+            showLocationToast('截图已保存到下载文件夹', 'success');
+        }
+
+        // 复制截图到剪贴板
+        async function copyScreenshotToClipboard(dataUrl) {
+            try {
+                // 转换为Blob
+                const response = await fetch(dataUrl);
+                const blob = await response.blob();
+
+                // 复制到剪贴板
+                await navigator.clipboard.write([
+                    new ClipboardItem({
+                        'image/png': blob
+                    })
+                ]);
+
+                showLocationToast('截图已复制到剪贴板', 'success');
+            } catch (error) {
+                console.error('复制失败:', error);
+
+                // 降级方案：复制Base64文本
+                const textArea = document.createElement('textarea');
+                textArea.value = dataUrl;
+                document.body.appendChild(textArea);
+                textArea.select();
+                document.execCommand('copy');
+                document.body.removeChild(textArea);
+
+                showLocationToast('已复制图片数据（部分浏览器只支持文本）', 'info');
+            }
+        }
+
+        // 系统分享截图
+        async function shareScreenshot(dataUrl) {
+            try {
+                // 转换为Blob
+                const response = await fetch(dataUrl);
+                const blob = await response.blob();
+                const file = new File([blob], '车辆位置截图.png', { type: 'image/png' });
+
+                if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+                    await navigator.share({
+                        title: `${carData.name} 位置分享`,
+                        text: `查看 ${carData.name} (${carData.plate}) 的实时位置`,
+                        files: [file]
+                    });
+
+                    showLocationToast('分享成功', 'success');
+                } else {
+                    // 不支持文件分享，使用降级方案
+                    copyScreenshotToClipboard(dataUrl);
+                }
+            } catch (error) {
+                if (error.name !== 'AbortError') {
+                    console.error('分享失败:', error);
+                    showLocationToast('分享失败: ' + error.message, 'error');
+                }
+            }
         }
 
         // 页面加载时预加载html2canvas
