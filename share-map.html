@@ -171,6 +171,7 @@
         let map = null;
         let marker = null;
         let carData = {};
+        let mapInitialized = false;
 
         // 从URL参数获取车辆信息
         function getUrlParams() {
@@ -188,20 +189,30 @@
 
         // 初始化地图
         function initMap() {
+            // 避免重复初始化
+            if (mapInitialized) {
+                console.log('地图已经初始化，跳过');
+                return;
+            }
+
             try {
                 // 获取车辆数据
                 carData = getUrlParams();
+                console.log('车辆数据:', carData);
 
                 // 检查TMap是否已加载
                 if (typeof TMap === 'undefined') {
-                    throw new Error('腾讯地图API未加载');
+                    console.log('TMap未定义，等待API加载...');
+                    setTimeout(initMap, 100);
+                    return;
                 }
+
+                console.log('TMap API已加载，开始初始化地图');
 
                 // 创建地图实例（使用官方推荐配置）
                 map = new TMap.Map('map-container', {
                     center: new TMap.LatLng(carData.lat, carData.lng),
                     zoom: 16,
-                    mapTypeId: TMap.MapTypeId.ROADMAP,
                     pitch: 0,
                     rotation: 0,
                     showControl: false,  // 隐藏默认控件，使用自定义控件
@@ -220,11 +231,12 @@
                 // 隐藏加载提示
                 document.getElementById('loading').style.display = 'none';
 
+                mapInitialized = true;
                 console.log('✅ 地图初始化成功', carData);
 
             } catch (error) {
                 console.error('❌ 地图初始化失败:', error);
-                showError();
+                showError(error);
             }
         }
 
@@ -346,24 +358,40 @@
         }
 
         // 显示错误
-        function showError() {
+        function showError(error) {
+            const errorDiv = document.getElementById('error');
+            const errorMsg = errorDiv.querySelector('div:last-child');
+
+            if (error) {
+                errorMsg.innerHTML = `${error.message}<br><small style="color: #666;">请检查网络连接或刷新页面重试</small>`;
+            }
+
             document.getElementById('loading').style.display = 'none';
-            document.getElementById('error').style.display = 'block';
+            errorDiv.style.display = 'block';
         }
 
         // 页面加载完成后初始化
         document.addEventListener('DOMContentLoaded', function() {
-            // 延迟初始化，确保API加载完成
-            setTimeout(initMap, 100);
+            console.log('DOM加载完成，开始初始化地图');
+            // 先尝试初始化
+            setTimeout(initMap, 200);
         });
 
         // 监听API加载完成
         window.onTMapLoaded = function() {
-            console.log('腾讯地图API加载完成');
-            if (!map) {
+            console.log('腾讯地图API回调触发');
+            if (!mapInitialized) {
                 initMap();
             }
         };
+
+        // 备用初始化方法
+        window.addEventListener('load', function() {
+            console.log('页面完全加载');
+            if (!mapInitialized) {
+                setTimeout(initMap, 500);
+            }
+        });
     </script>
 </body>
 </html>
