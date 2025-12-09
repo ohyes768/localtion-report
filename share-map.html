@@ -83,6 +83,19 @@
             100% { opacity: 1; }
         }
 
+        .debug-btn {
+            background: #5856D6;
+            color: white;
+        }
+
+        .debug-btn:hover {
+            background: #4A4AE6;
+        }
+
+        .debug-btn.active {
+            background: #FF9500;
+        }
+
         /* 车辆信息面板 */
         .car-info-panel {
             position: absolute;
@@ -188,6 +201,7 @@
     <div id="map-controls" class="map-controls" style="display: none;">
         <button class="control-btn back-btn" onclick="goBack()">🔙 返回</button>
         <button class="control-btn location-btn" onclick="getCurrentLocation()">📍 定位</button>
+        <button class="control-btn debug-btn" onclick="toggleCoordinateDebug()">🔍 调试</button>
         <button class="control-btn" onclick="zoomIn()">放大</button>
         <button class="control-btn" onclick="zoomOut()">缩小</button>
         <button class="control-btn" onclick="recenter()">重新居中</button>
@@ -214,6 +228,85 @@
         let marker = null;
         let carData = {};
         let mapInitialized = false;
+
+        // 坐标系转换工具
+        const CoordinateConverter = {
+            // WGS-84 到 GCJ-02 (火星坐标系) 转换
+            wgs84ToGcj02: function(wgsLat, wgsLng) {
+                if (this.outOfChina(wgsLat, wgsLng)) {
+                    return { lat: wgsLat, lng: wgsLng };
+                }
+
+                let dLat = this.transformLat(wgsLng - 105.0, wgsLat - 35.0);
+                let dLng = this.transformLng(wgsLng - 105.0, wgsLat - 35.0);
+                const radLat = (wgsLat / 180.0) * Math.PI;
+                let magic = Math.sin(radLat);
+                magic = 1 - 0.00669342162296594323 * magic * magic;
+                const sqrtMagic = Math.sqrt(magic);
+                dLat = (dLat * 180.0) / ((6378245.0 * (1 - 0.00669342162296594323)) / (magic * sqrtMagic) * Math.PI);
+                dLng = (dLng * 180.0) / (6378245.0 / sqrtMagic * Math.cos(radLat) * Math.PI);
+
+                const gcjLat = wgsLat + dLat;
+                const gcjLng = wgsLng + dLng;
+
+                return { lat: gcjLat, lng: gcjLng };
+            },
+
+            // GCJ-02 到 WGS-84 转换
+            gcj02ToWgs84: function(gcjLat, gcjLng) {
+                if (this.outOfChina(gcjLat, gcjLng)) {
+                    return { lat: gcjLat, lng: gcjLng };
+                }
+
+                let dLat = this.transformLat(gcjLng - 105.0, gcjLat - 35.0);
+                let dLng = this.transformLng(gcjLng - 105.0, gcjLat - 35.0);
+                const radLat = (gcjLat / 180.0) * Math.PI;
+                let magic = Math.sin(radLat);
+                magic = 1 - 0.00669342162296594323 * magic * magic;
+                const sqrtMagic = Math.sqrt(magic);
+                dLat = (dLat * 180.0) / ((6378245.0 * (1 - 0.00669342162296594323)) / (magic * sqrtMagic) * Math.PI);
+                dLng = (dLng * 180.0) / (6378245.0 / sqrtMagic * Math.cos(radLat) * Math.PI);
+
+                const wgsLat = gcjLat - dLat;
+                const wgsLng = gcjLng - dLng;
+
+                return { lat: wgsLat, lng: wgsLng };
+            },
+
+            // 转换算法核心函数
+            transformLat: function(x, y) {
+                let ret = -100.0 + 2.0 * x + 3.0 * y + 0.2 * y * y + 0.1 * x * y + 0.2 * Math.sqrt(Math.abs(x));
+                ret += (20.0 * Math.sin(6.0 * x * Math.PI) + 20.0 * Math.sin(2.0 * x * Math.PI)) * 2.0 / 3.0;
+                ret += (20.0 * Math.sin(y * Math.PI) + 40.0 * Math.sin(y / 3.0 * Math.PI)) * 2.0 / 3.0;
+                ret += (160.0 * Math.sin(y / 12.0 * Math.PI) + 320 * Math.sin(y * Math.PI / 30.0)) * 2.0 / 3.0;
+                return ret;
+            },
+
+            transformLng: function(x, y) {
+                let ret = 300.0 + x + 2.0 * y + 0.1 * x * x + 0.1 * x * y + 0.1 * Math.sqrt(Math.abs(x));
+                ret += (20.0 * Math.sin(6.0 * x * Math.PI) + 20.0 * Math.sin(2.0 * x * Math.PI)) * 2.0 / 3.0;
+                ret += (20.0 * Math.sin(x * Math.PI) + 40.0 * Math.sin(x / 3.0 * Math.PI)) * 2.0 / 3.0;
+                ret += (150.0 * Math.sin(x / 12.0 * Math.PI) + 300.0 * Math.sin(x / 30.0 * Math.PI)) * 2.0 / 3.0;
+                return ret;
+            },
+
+            // 判断是否在中国境外
+            outOfChina: function(lat, lng) {
+                return (lng < 72.004 || lng > 137.8347) || ((lat < 0.8293 || lat > 55.8271) || false);
+            },
+
+            // 计算两点间距离（米）
+            calculateDistance: function(lat1, lng1, lat2, lng2) {
+                const R = 6371000; // 地球半径（米）
+                const dLat = (lat2 - lat1) * Math.PI / 180;
+                const dLng = (lng2 - lng1) * Math.PI / 180;
+                const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                          Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+                          Math.sin(dLng/2) * Math.sin(dLng/2);
+                const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+                return R * c;
+            }
+        };
 
         // 从URL参数获取车辆信息
         function getUrlParams() {
@@ -529,26 +622,40 @@
                 // 处理定位结果
                 if (position && position.coords) {
                     const accuracy = position.coords.accuracy;
-                    const lat = position.coords.latitude;
-                    const lng = position.coords.longitude;
+                    const wgsLat = position.coords.latitude;
+                    const wgsLng = position.coords.longitude;
 
-                    console.log(`✅ 定位成功: 精度${accuracy}米, 坐标(${lat.toFixed(6)}, ${lng.toFixed(6)})`);
+                    console.log(`📡 原始定位坐标 (WGS-84): 精度${accuracy}米, 坐标(${wgsLat.toFixed(6)}, ${wgsLng.toFixed(6)})`);
+
+                    // 坐标系转换：WGS-84 -> GCJ-02 (腾讯地图使用火星坐标系)
+                    const gcjCoords = CoordinateConverter.wgs84ToGcj02(wgsLat, wgsLng);
+                    const gcjLat = gcjCoords.lat;
+                    const gcjLng = gcjCoords.lng;
+
+                    // 计算坐标偏移距离
+                    const offsetDistance = CoordinateConverter.calculateDistance(wgsLat, wgsLng, gcjLat, gcjLng);
+
+                    console.log(`🗺️ 转换后坐标 (GCJ-02): 坐标(${gcjLat.toFixed(6)}, ${gcjLng.toFixed(6)})`);
+                    console.log(`📏 坐标偏移距离: ${offsetDistance.toFixed(1)}米`);
+
+                    // 调试日志
+                    logCoordinateDebug(wgsLat, wgsLng, gcjLat, gcjLng, offsetDistance);
 
                     // 精度验证
                     if (accuracy > 500) {
                         console.warn('⚠️ 定位精度较低，可能存在偏差');
-                        showLocationToast(`定位精度较低 (${Math.round(accuracy)}m)，建议到开阔区域重试`, 'warning');
+                        showLocationToast(`定位精度较低 (${Math.round(accuracy)}m)，建议到开阔区域重试，已进行坐标校正`, 'warning');
                     } else if (accuracy > 100) {
                         console.log('📊 定位精度中等');
-                        showLocationToast(`定位成功，精度${Math.round(accuracy)}m`, 'info');
+                        showLocationToast(`定位成功，精度${Math.round(accuracy)}m，已校正坐标系`, 'info');
                     } else {
                         console.log('🎯 定位精度很高');
-                        showLocationToast(`高精度定位成功，精度${Math.round(accuracy)}m`, 'success');
+                        showLocationToast(`高精度定位成功，精度${Math.round(accuracy)}m，坐标偏移${offsetDistance.toFixed(0)}m已校正`, 'success');
                     }
 
-                    // 更新地图中心
+                    // 更新地图中心（使用转换后的GCJ-02坐标）
                     if (map) {
-                        map.setCenter(new TMap.LatLng(lat, lng));
+                        map.setCenter(new TMap.LatLng(gcjLat, gcjLng));
 
                         // 添加当前位置标记
                         if (window.currentLocationMarker) {
@@ -569,26 +676,49 @@
                                             <circle cx="10" cy="10" r="2" fill="white"/>
                                         </svg>
                                     `)
+                                }),
+                                'original-location': new TMap.MarkerStyle({
+                                    width: 16,
+                                    height: 16,
+                                    anchor: {x: 8, y: 8},
+                                    src: 'data:image/svg+xml;base64,' + btoa(`
+                                        <svg width="16" height="16" viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg">
+                                            <circle cx="8" cy="8" r="6" fill="#FF3B30" fill-opacity="0.3"/>
+                                            <circle cx="8" cy="8" r="3" fill="#FF3B30"/>
+                                            <circle cx="8" cy="8" r="1.5" fill="white"/>
+                                        </svg>
+                                    `)
                                 })
                             },
-                            geometries: [{
-                                id: 'current-location',
-                                styleId: 'current-location',
-                                position: new TMap.LatLng(lat, lng),
-                                properties: {
-                                    title: '当前位置'
+                            geometries: [
+                                {
+                                    id: 'current-location',
+                                    styleId: 'current-location',
+                                    position: new TMap.LatLng(gcjLat, gcjLng),
+                                    properties: {
+                                        title: '当前位置 (已校正)'
+                                    }
+                                },
+                                // 显示原始WGS-84位置作为对比（用于调试）
+                                {
+                                    id: 'original-location',
+                                    styleId: 'original-location',
+                                    position: new TMap.LatLng(wgsLat, wgsLng),
+                                    properties: {
+                                        title: '原始位置 (WGS-84)'
+                                    }
                                 }
-                            }]
+                            ]
                         });
 
                         // 调整地图缩放级别
                         map.setZoom(16);
                     }
 
-                    // 更新车辆数据（可选）
-                    carData.lat = lat;
-                    carData.lng = lng;
-                    carData.address = '当前位置（精确定位）';
+                    // 更新车辆数据（使用转换后的坐标）
+                    carData.lat = gcjLat;
+                    carData.lng = gcjLng;
+                    carData.address = `当前位置（精确定位，坐标系已校正，偏移${offsetDistance.toFixed(0)}m）`;
 
                 } else {
                     throw new Error('定位返回无效数据');
@@ -648,6 +778,100 @@
 
                 attemptLocation();
             });
+        }
+
+        // 坐标调试功能
+        let coordinateDebugEnabled = false;
+
+        function toggleCoordinateDebug() {
+            coordinateDebugEnabled = !coordinateDebugEnabled;
+            const debugBtn = document.querySelector('.debug-btn');
+
+            if (coordinateDebugEnabled) {
+                debugBtn.classList.add('active');
+                debugBtn.textContent = '🔍 已开启';
+                showCoordinateDebugInfo();
+                showLocationToast('坐标调试模式已开启，将在控制台显示详细信息', 'info');
+            } else {
+                debugBtn.classList.remove('active');
+                debugBtn.textContent = '🔍 调试';
+                hideCoordinateDebugInfo();
+                showLocationToast('坐标调试模式已关闭', 'info');
+            }
+        }
+
+        function showCoordinateDebugInfo() {
+            if (!coordinateDebugEnabled) return;
+
+            const debugInfo = document.createElement('div');
+            debugInfo.id = 'coordinate-debug-info';
+            debugInfo.style.cssText = `
+                position: fixed;
+                top: 130px;
+                right: 20px;
+                background: rgba(0, 0, 0, 0.8);
+                color: white;
+                padding: 15px;
+                border-radius: 8px;
+                font-size: 12px;
+                z-index: 10000;
+                max-width: 300px;
+                font-family: monospace;
+                line-height: 1.4;
+            `;
+            debugInfo.innerHTML = `
+                <strong>🔍 坐标调试信息</strong><br>
+                浏览器: ${navigator.userAgent.split(' ')[0]}<br>
+                坐标系: WGS-84 → GCJ-02<br>
+                <small>请在控制台查看详细转换日志</small>
+            `;
+
+            document.body.appendChild(debugInfo);
+        }
+
+        function hideCoordinateDebugInfo() {
+            const debugInfo = document.getElementById('coordinate-debug-info');
+            if (debugInfo) {
+                debugInfo.remove();
+            }
+        }
+
+        function logCoordinateDebug(wgsLat, wgsLng, gcjLat, gcjLng, offsetDistance) {
+            if (!coordinateDebugEnabled) return;
+
+            console.group('🔍 坐标转换调试信息');
+            console.log('浏览器类型:', navigator.userAgent);
+            console.log('原始坐标 (WGS-84):', {
+                latitude: wgsLat.toFixed(6),
+                longitude: wgsLng.toFixed(6)
+            });
+            console.log('转换坐标 (GCJ-02):', {
+                latitude: gcjLat.toFixed(6),
+                longitude: gcjLng.toFixed(6)
+            });
+            console.log('偏移距离:', offsetDistance.toFixed(1) + '米');
+
+            // 在高德地图上验证（高德使用GCJ-02）
+            const gaodeUrl = `https://uri.amap.com/marker?position=${gcjLng.toFixed(6)},${gcjLat.toFixed(6)}&name=转换后位置`;
+            console.log('高德地图验证链接:', gaodeUrl);
+
+            // 在Google地图上验证原始坐标（Google使用WGS-84）
+            const googleUrl = `https://www.google.com/maps?q=${wgsLat.toFixed(6)},${wgsLng.toFixed(6)}`;
+            console.log('Google地图验证链接:', googleUrl);
+
+            console.groupEnd();
+
+            // 更新调试信息面板
+            const debugInfo = document.getElementById('coordinate-debug-info');
+            if (debugInfo) {
+                debugInfo.innerHTML = `
+                    <strong>🔍 坐标转换调试</strong><br>
+                    WGS-84: ${wgsLat.toFixed(4)}, ${wgsLng.toFixed(4)}<br>
+                    GCJ-02: ${gcjLat.toFixed(4)}, ${gcjLng.toFixed(4)}<br>
+                    偏移: ${offsetDistance.toFixed(0)}m<br>
+                    <small>详情请查看控制台</small>
+                `;
+            }
         }
 
         // 显示定位提示消息
