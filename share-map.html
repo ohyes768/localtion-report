@@ -1102,7 +1102,7 @@
 
                                     // 添加车辆信息水印
                                     addWatermark(canvas);
-                                    resolve(canvas);
+                                    resolve(canvas.toDataURL());
                                 }).catch(error => {
                                     console.error('❌ html2canvas截图失败:', error);
 
@@ -1457,7 +1457,7 @@
             ctx.fillText(`截图时间: ${new Date().toLocaleString('zh-CN')}`, width - 20, 30);
 
             console.log('✅ 增强备用截图方案生成完成');
-            return canvas;
+            return canvas.toDataURL();
         }
 
         // 添加水印
@@ -1619,6 +1619,40 @@
 
         // 下载截图
         function downloadScreenshot(dataUrl) {
+            // 类型检查和转换
+            if (!dataUrl) {
+                showLocationToast('截图数据无效', 'error');
+                return;
+            }
+
+            let finalDataUrl = dataUrl;
+
+            // 如果是 canvas 对象，转换为 dataUrl
+            if (typeof dataUrl === 'object' && dataUrl.toDataURL) {
+                finalDataUrl = dataUrl.toDataURL();
+            }
+
+            // 如果是 blob 对象，转换为 dataUrl
+            if (typeof dataUrl === 'object' && dataUrl instanceof Blob) {
+                const reader = new FileReader();
+                reader.onload = function() {
+                    finalDataUrl = reader.result;
+                    createDownloadLink(finalDataUrl);
+                };
+                reader.readAsDataURL(dataUrl);
+                return;
+            }
+
+            createDownloadLink(finalDataUrl);
+        }
+
+        // 创建下载链接
+        function createDownloadLink(dataUrl) {
+            if (!dataUrl || typeof dataUrl !== 'string') {
+                showLocationToast('截图数据格式错误', 'error');
+                return;
+            }
+
             const link = document.createElement('a');
             link.download = `车辆位置截图_${new Date().toLocaleString('zh-CN').replace(/[\/:]/g, '-')}.png`;
             link.href = dataUrl;
@@ -1629,8 +1663,21 @@
         // 复制截图到剪贴板
         async function copyScreenshotToClipboard(dataUrl) {
             try {
+                // 类型检查和转换
+                let finalDataUrl = dataUrl;
+
+                // 如果是 canvas 对象，转换为 dataUrl
+                if (typeof dataUrl === 'object' && dataUrl.toDataURL) {
+                    finalDataUrl = dataUrl.toDataURL();
+                }
+
+                if (!finalDataUrl || typeof finalDataUrl !== 'string') {
+                    showLocationToast('截图数据格式错误', 'error');
+                    return;
+                }
+
                 // 转换为Blob
-                const response = await fetch(dataUrl);
+                const response = await fetch(finalDataUrl);
                 const blob = await response.blob();
 
                 // 复制到剪贴板
@@ -1646,7 +1693,7 @@
 
                 // 降级方案：复制Base64文本
                 const textArea = document.createElement('textarea');
-                textArea.value = dataUrl;
+                textArea.value = typeof dataUrl === 'string' ? dataUrl : '截图数据复制失败';
                 document.body.appendChild(textArea);
                 textArea.select();
                 document.execCommand('copy');
@@ -1659,8 +1706,21 @@
         // 系统分享截图
         async function shareScreenshot(dataUrl) {
             try {
+                // 类型检查和转换
+                let finalDataUrl = dataUrl;
+
+                // 如果是 canvas 对象，转换为 dataUrl
+                if (typeof dataUrl === 'object' && dataUrl.toDataURL) {
+                    finalDataUrl = dataUrl.toDataURL();
+                }
+
+                if (!finalDataUrl || typeof finalDataUrl !== 'string') {
+                    showLocationToast('截图数据格式错误', 'error');
+                    return;
+                }
+
                 // 转换为Blob
-                const response = await fetch(dataUrl);
+                const response = await fetch(finalDataUrl);
                 const blob = await response.blob();
                 const file = new File([blob], '车辆位置截图.png', { type: 'image/png' });
 
@@ -1674,7 +1734,7 @@
                     showLocationToast('分享成功', 'success');
                 } else {
                     // 不支持文件分享，使用降级方案
-                    copyScreenshotToClipboard(dataUrl);
+                    copyScreenshotToClipboard(finalDataUrl);
                 }
             } catch (error) {
                 if (error.name !== 'AbortError') {
