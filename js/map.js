@@ -491,20 +491,26 @@ class MapManager {
             address = `${location.lat.toFixed(6)}, ${location.lng.toFixed(6)}`;
         }
 
-        // 生成腾讯地图链接
-        const tencentMapUrl = this._generateTencentMapUrl(location, carInfo, address);
+        // 生成腾讯地图标记页面URL（用于iframe嵌入）
+        const tencentMarkerUrl = this._generateTencentMarkerUrl(location, carInfo, address);
 
-        // 创建分享页面HTML
-        const sharePageHtml = this._createSharePageHtml(location, carInfo, address, tencentMapUrl);
-
-        // 转换为Blob URL
-        const blob = new Blob([sharePageHtml], { type: 'text/html;charset=utf-8' });
-        const blobUrl = URL.createObjectURL(blob);
-
-        return blobUrl;
+        return tencentMarkerUrl;
     }
 
-    // 生成腾讯地图链接
+    // 生成腾讯地图标记页面URL（用于iframe嵌入）
+    _generateTencentMarkerUrl(location, carInfo, address) {
+        // 使用腾讯地图API生成标记页面
+        const params = new URLSearchParams({
+            marker: `coord:${location.lat},${location.lng};title:${carInfo.name};addr:${address}`,
+            key: MAP_CONFIG.key,
+            referer: window.location.hostname
+        });
+
+        // 使用腾讯地图URI API，这个可以在iframe中显示
+        return `https://apis.map.qq.com/uri/v1/marker?${params.toString()}`;
+    }
+
+    // 生成腾讯地图链接（保留用于其他用途）
     _generateTencentMapUrl(location, carInfo, address) {
         const params = new URLSearchParams({
             center: `${location.lat},${location.lng}`,
@@ -516,262 +522,7 @@ class MapManager {
         return `https://map.qq.com/?${params.toString()}`;
     }
 
-    // 创建分享页面HTML
-    _createSharePageHtml(location, carInfo, address, tencentMapUrl) {
-        const currentTime = new Date().toLocaleString('zh-CN');
-        const accuracy = location.accuracy ? Math.round(location.accuracy) : '未知';
-
-        return `<!DOCTYPE html>
-<html lang="zh-CN">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>📍 ${carInfo.name} - 车辆位置分享</title>
-    <meta name="description" content="车辆位置信息分享 - ${carInfo.name}（${carInfo.plate}）">
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
-            padding: 20px;
-            color: #333;
-        }
-        .container {
-            max-width: 500px;
-            margin: 0 auto;
-            background: white;
-            border-radius: 20px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
-            overflow: hidden;
-            animation: slideUp 0.5s ease-out;
-        }
-        @keyframes slideUp {
-            from {
-                opacity: 0;
-                transform: translateY(30px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
-        .header {
-            background: ${carInfo.color};
-            color: white;
-            padding: 30px;
-            text-align: center;
-            position: relative;
-            overflow: hidden;
-        }
-        .header::before {
-            content: '';
-            position: absolute;
-            top: -50%;
-            left: -50%;
-            width: 200%;
-            height: 200%;
-            background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%);
-            animation: pulse 3s ease-in-out infinite;
-        }
-        @keyframes pulse {
-            0%, 100% { transform: scale(1); }
-            50% { transform: scale(1.1); }
-        }
-        .car-icon {
-            font-size: 48px;
-            margin-bottom: 10px;
-            animation: bounce 2s ease-in-out infinite;
-        }
-        @keyframes bounce {
-            0%, 20%, 50%, 80%, 100% { transform: translateY(0); }
-            40% { transform: translateY(-10px); }
-            60% { transform: translateY(-5px); }
-        }
-        .car-name {
-            font-size: 24px;
-            font-weight: bold;
-            margin-bottom: 5px;
-        }
-        .car-plate {
-            font-size: 16px;
-            opacity: 0.9;
-        }
-        .content {
-            padding: 30px;
-        }
-        .location-card {
-            background: #f8f9fa;
-            border-radius: 15px;
-            padding: 20px;
-            margin-bottom: 20px;
-            border-left: 5px solid ${carInfo.color};
-        }
-        .location-title {
-            font-size: 18px;
-            font-weight: bold;
-            margin-bottom: 15px;
-            color: #333;
-            display: flex;
-            align-items: center;
-        }
-        .location-title .icon {
-            margin-right: 8px;
-            font-size: 20px;
-        }
-        .info-item {
-            display: flex;
-            align-items: flex-start;
-            margin-bottom: 12px;
-            font-size: 14px;
-        }
-        .info-label {
-            font-weight: bold;
-            color: #666;
-            margin-right: 10px;
-            min-width: 60px;
-        }
-        .info-value {
-            color: #333;
-            flex: 1;
-            word-break: break-all;
-        }
-        .map-link {
-            display: inline-block;
-            background: #007AFF;
-            color: white;
-            text-decoration: none;
-            padding: 15px 30px;
-            border-radius: 25px;
-            font-weight: bold;
-            text-align: center;
-            width: 100%;
-            margin-top: 20px;
-            transition: all 0.3s ease;
-            box-shadow: 0 4px 15px rgba(0, 122, 255, 0.3);
-        }
-        .map-link:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 6px 20px rgba(0, 122, 255, 0.4);
-        }
-        .map-link .icon {
-            margin-right: 8px;
-        }
-        .footer {
-            text-align: center;
-            padding: 20px;
-            font-size: 12px;
-            color: #999;
-            border-top: 1px solid #eee;
-        }
-        .accuracy-badge {
-            display: inline-block;
-            background: #28a745;
-            color: white;
-            padding: 2px 8px;
-            border-radius: 12px;
-            font-size: 12px;
-            margin-left: 8px;
-        }
-        .accuracy-low {
-            background: #ffc107;
-        }
-        .accuracy-medium {
-            background: #fd7e14;
-        }
-        .accuracy-high {
-            background: #dc3545;
-        }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <div class="header">
-            <div class="car-icon">🚗</div>
-            <div class="car-name">${carInfo.name}</div>
-            <div class="car-plate">${carInfo.plate}</div>
-        </div>
-
-        <div class="content">
-            <div class="location-card">
-                <div class="location-title">
-                    <span class="icon">📍</span>
-                    车辆位置信息
-                </div>
-
-                <div class="info-item">
-                    <span class="info-label">📍 位置:</span>
-                    <span class="info-value">${address}</span>
-                </div>
-
-                <div class="info-item">
-                    <span class="info-label">🕐 时间:</span>
-                    <span class="info-value">${currentTime}</span>
-                </div>
-
-                <div class="info-item">
-                    <span class="info-label">📊 精度:</span>
-                    <span class="info-value">
-                        ${accuracy}米
-                        <span class="accuracy-badge ${this._getAccuracyClass(accuracy)}">
-                            ${this._getAccuracyLevel(accuracy)}
-                        </span>
-                    </span>
-                </div>
-
-                <div class="info-item">
-                    <span class="info-label">🔢 坐标:</span>
-                    <span class="info-value">${location.lat.toFixed(6)}, ${location.lng.toFixed(6)}</span>
-                </div>
-            </div>
-
-            <a href="${tencentMapUrl}" class="map-link" target="_blank">
-                <span class="icon">🗺️</span>
-                在腾讯地图中查看
-            </a>
-        </div>
-
-        <div class="footer">
-            <p>📍 车辆位置分享系统 - 腾讯位置服务</p>
-            <p>生成时间: ${currentTime}</p>
-        </div>
-    </div>
-
-    <script>
-        // 防止页面被缓存
-        window.onload = function() {
-            if ('serviceWorker' in navigator) {
-                navigator.serviceWorker.getRegistrations().then(function(registrations) {
-                    for(let registration of registrations) {
-                        registration.unregister();
-                    }
-                });
-            }
-        };
-    </script>
-</body>
-</html>`;
-    }
-
-    // 获取精度等级类名
-    _getAccuracyClass(accuracy) {
-        if (accuracy < 20) return 'accuracy-high';
-        if (accuracy < 50) return 'accuracy-medium';
-        return 'accuracy-low';
-    }
-
-    // 获取精度等级文字
-    _getAccuracyLevel(accuracy) {
-        if (accuracy < 20) return '极高';
-        if (accuracy < 50) return '中等';
-        if (accuracy < 100) return '一般';
-        return '较低';
-    }
-
+  
 
     // 使用腾讯地图静态图API生成截图
     async _generateStaticMapScreenshot(location, carInfo) {
