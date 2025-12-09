@@ -359,72 +359,30 @@ class VehicleLocationApp {
         document.getElementById('location-title').textContent = this.currentCar.name;
     }
 
-    // 显示分享页面
+    // 显示分享页面 - 跳转到独立页面
     async showSharePage() {
-        this.showPage('share-page');
-
         try {
-            // 生成腾讯位置服务分享页面
-            const sharePageUrl = await this.mapManager.generateSharePage(
-                this.currentLocation,
-                this.currentCar
-            );
+            // 生成分享页面的URL参数
+            const params = new URLSearchParams({
+                car: this.currentCar.id,
+                name: this.currentCar.name,
+                plate: this.currentCar.plate,
+                color: this.currentCar.color,
+                lat: this.currentLocation.lat,
+                lng: this.currentLocation.lng,
+                address: this.currentLocation.address || '位置解析中...',
+                accuracy: Math.round(this.currentLocation.accuracy),
+                time: this.currentLocation.timestamp,
+                provider: this.currentLocation.provider
+            });
 
-            // 更新分享页面为iframe显示
-            const screenshotContainer = document.querySelector('.screenshot-container');
-            if (screenshotContainer) {
-                screenshotContainer.innerHTML = `
-                    <iframe
-                        src="${sharePageUrl}"
-                        style="
-                            width: 100%;
-                            height: 500px;
-                            border: none;
-                            border-radius: 10px;
-                            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-                        "
-                        frameborder="0"
-                    ></iframe>
-                    <div style="margin-top: 15px; text-align: center;">
-                        <button onclick="window.open('${sharePageUrl}', '_blank')" style="
-                            background: #007AFF;
-                            color: white;
-                            border: none;
-                            padding: 12px 24px;
-                            border-radius: 6px;
-                            cursor: pointer;
-                            font-size: 14px;
-                            margin-right: 10px;
-                        ">
-                            🌐 全屏查看地图
-                        </button>
-                        <button onclick="navigator.share && navigator.share({
-                            title: '${this.currentCar.name} 位置分享',
-                            text: '车辆位置：${document.getElementById('location-address').textContent}',
-                            url: '${sharePageUrl}'
-                        })" style="
-                            background: #34C759;
-                            color: white;
-                            border: none;
-                            padding: 12px 24px;
-                            border-radius: 6px;
-                            cursor: pointer;
-                            font-size: 14px;
-                        ">
-                            📤 系统分享
-                        </button>
-                    </div>
-                `;
-            }
-
-            // 更新分享信息
-            this.updateShareInfo();
-
-            Utils.showToast('✅ 分享页面生成成功');
+            // 跳转到分享页面
+            const shareUrl = `share-map.html?${params.toString()}`;
+            window.location.href = shareUrl;
 
         } catch (error) {
             Utils.logError(error, { type: 'share_page' });
-            Utils.showToast('分享页面加载失败: ' + error.message);
+            Utils.showToast('生成分享链接失败: ' + error.message);
         }
     }
 

@@ -129,6 +129,16 @@
             color: #999;
         }
 
+        .car-details {
+            font-size: 11px;
+            color: #666;
+            margin-top: 4px;
+        }
+
+        .car-details small {
+            opacity: 0.8;
+        }
+
         .car-color-indicator {
             display: inline-block;
             width: 12px;
@@ -216,6 +226,10 @@
         <div class="car-address" id="car-address">地址加载中...</div>
         <div class="car-meta">
             <span id="car-time">更新时间</span> • <span id="car-coords">坐标</span>
+        </div>
+        <div class="car-details">
+            <small>🎯 精度: <span id="car-accuracy">未知</span>米</small> •
+            <small>📡 <span id="car-provider">GPS定位</span></small>
         </div>
     </div>
 
@@ -318,7 +332,9 @@
                 plate: params.get('plate') || '',
                 address: params.get('address') || '位置信息',
                 color: params.get('color') || '#007AFF',
-                time: params.get('time') || new Date().toLocaleString('zh-CN')
+                time: params.get('time') || new Date().toLocaleString('zh-CN'),
+                accuracy: params.get('accuracy') || '未知',
+                provider: params.get('provider') || 'GPS定位'
             };
         }
 
@@ -510,6 +526,8 @@
             document.getElementById('car-address').textContent = carData.address;
             document.getElementById('car-time').textContent = carData.time;
             document.getElementById('car-coords').textContent = `${carData.lat.toFixed(6)}, ${carData.lng.toFixed(6)}`;
+            document.getElementById('car-accuracy').textContent = carData.accuracy || '未知';
+            document.getElementById('car-provider').textContent = carData.provider || 'GPS定位';
             document.getElementById('car-info').style.display = 'block';
         }
 
@@ -540,21 +558,16 @@
         function goBack() {
             console.log('🔙 返回上一页');
 
-            // 尝试多种返回方式
-            if (window.history.length > 1) {
+            // 优先返回到来源页面
+            if (document.referrer && document.referrer.includes(window.location.hostname)) {
+                // 如果有同域的来源页面，跳转到来源页面
+                window.location.href = document.referrer;
+            } else if (window.history.length > 1) {
                 // 如果有历史记录，使用history.back()
                 window.history.back();
-            } else if (document.referrer) {
-                // 如果有来源页面，跳转到来源页面
-                window.location.href = document.referrer;
             } else {
-                // 否则关闭当前窗口或跳转到默认页面
-                if (window.close) {
-                    window.close();
-                } else {
-                    // 跳转到项目根目录或默认页面
-                    window.location.href = './index.html';
-                }
+                // 否则跳转到主页面
+                window.location.href = './index.html';
             }
         }
 
