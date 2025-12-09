@@ -320,6 +320,42 @@
 
                 console.log('TMap API已加载，开始初始化地图');
 
+                // 尝试拦截WebGL上下文创建以设置preserveDrawingBuffer
+                const originalGetContext = HTMLCanvasElement.prototype.getContext;
+                const originalGetContext2D = HTMLCanvasElement.prototype.getContext2D;
+
+                HTMLCanvasElement.prototype.getContext = function(contextType, ...args) {
+                    if (contextType === 'webgl' || contextType === 'experimental-webgl' || contextType === 'webgl2') {
+                        console.log('🎮 拦截WebGL上下文创建，强制设置preserveDrawingBuffer=true');
+
+                        // 获取或创建上下文属性对象
+                        let contextAttributes = args[0] || {};
+
+                        // 强制设置preserveDrawingBuffer为true以支持截图
+                        contextAttributes.preserveDrawingBuffer = true;
+                        contextAttributes.premultipliedAlpha = false;
+                        contextAttributes.alpha = true;
+                        contextAttributes.antialias = true;
+                        contextAttributes.depth = true;
+                        contextAttributes.stencil = false;
+
+                        console.log('🔧 修改后的WebGL上下文属性:', contextAttributes);
+
+                        // 使用修改后的属性创建上下文
+                        const gl = originalGetContext.call(this, contextType, contextAttributes);
+
+                        if (gl) {
+                            console.log('✅ WebGL上下文创建成功，preserveDrawingBuffer已启用');
+                            // 立即检查preserveDrawingBuffer状态
+                            const drawBuffer = gl.getParameter(gl.DRAW_BUFFER);
+                            console.log('📊 WebGL DRAW_BUFFER状态:', drawBuffer);
+                        }
+
+                        return gl;
+                    }
+                    return originalGetContext.call(this, contextType, ...args);
+                };
+
                 // 创建地图实例（优化WebGL配置以支持截图）
                 map = new TMap.Map('map-container', {
                     center: new TMap.LatLng(carData.lat, carData.lng),
@@ -359,6 +395,12 @@
 
                 // 显示控制按钮
                 document.getElementById('map-controls').style.display = 'block';
+
+                // 恢复原始getContext方法，避免影响页面其他功能
+                setTimeout(() => {
+                    console.log('🔄 恢复原始getContext方法');
+                    HTMLCanvasElement.prototype.getContext = originalGetContext;
+                }, 2000);
 
                 // 隐藏加载提示
                 document.getElementById('loading').style.display = 'none';
@@ -604,11 +646,25 @@
                         console.log('🎮 WebGL检测:', { isWebGL, hasCanvas: !!mapCanvas });
 
                         if (isWebGL) {
-                            console.log('🔄 检测到WebGL渲染，使用备用方案...');
-                            // WebGL无法直接截图，使用备用方案
-                            controls.style.display = originalControlsDisplay;
-                            carInfo.style.display = originalCarInfoDisplay;
-                            fallbackScreenshot().then(resolve).catch(reject);
+                            console.log('🔄 检测到WebGL渲染，尝试WebGL像素读取...');
+                            // 尝试WebGL像素读取方案
+                            const webglCanvas = captureWebGLCanvas(mapCanvas);
+                            if (webglCanvas) {
+                                console.log('✅ WebGL像素读取成功');
+
+                                // 恢复控制按钮显示
+                                controls.style.display = originalControlsDisplay;
+                                carInfo.style.display = originalCarInfoDisplay;
+
+                                // 添加车辆信息水印
+                                addWatermark(webglCanvas);
+                                resolve(webglCanvas);
+                            } else {
+                                console.log('⚠️ WebGL像素读取失败，使用备用方案...');
+                                controls.style.display = originalControlsDisplay;
+                                carInfo.style.display = originalCarInfoDisplay;
+                                fallbackScreenshot().then(resolve).catch(reject);
+                            }
                         } else {
                             // 非WebGL，尝试使用html2canvas
                             if (window.html2canvas) {
@@ -663,6 +719,141 @@
                     reject(error);
                 }
             });
+        }
+
+        // WebGL像素读取截图函数
+        function captureWebGLCanvas(canvas) {
+            console.log('🎯 开始WebGL像素读取...');
+
+            try {
+                // 尝试获取WebGL上下文
+                const gl = canvas.getContext('webgl') ||
+                          canvas.getContext('experimental-webgl') ||
+                          canvas.getContext('webgl2');
+
+                if (!gl) {
+                    console.log('❌ 无法获取WebGL上下文');
+                    return null;
+                }
+
+                console.log('✅ WebGL上下文获取成功:', {
+                    version: gl.getParameter(gl.VERSION),
+                    vendor: gl.getParameter(gl.VENDOR),
+                    renderer: gl.getParameter(gl.RENDERER)
+                });
+
+                // 检查是否可以直接读取像素
+                try {
+                    // 创建像素数据缓冲区
+                    const width = canvas.width;
+                    const height = canvas.height;
+                    const pixels = new Uint8Array(width * height * 4);
+
+                    console.log('📐 尝试读取像素:', width, 'x', height);
+
+                    // 强制触发渲染以确保绘制缓冲区有内容
+                    try {
+                        // 多次调用flush确保所有命令都执行完毕
+                        for (let i = 0; i < 3; i++) {
+                            gl.flush();
+                        }
+                        // 强制完成所有待处理的WebGL命令
+                        gl.finish();
+
+                        // 等待一小段时间确保渲染完成
+                        await new Promise(resolve => setTimeout(resolve, 100));
+
+                    } catch (e) {
+                        console.log('⚠️ 强制渲染触发失败:', e);
+                    }
+
+                    // 尝试读取像素数据
+                    gl.readPixels(0, 0, width, height, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
+
+                    console.log('📊 像素数据读取成功，检查内容...');
+
+                    // 检查是否读取到了有效数据（不是全透明或全灰色）
+                    let hasValidData = false;
+                    let colorSample = {};
+
+                    // 采样更多像素进行详细检查
+                    for (let i = 0; i < Math.min(500, pixels.length); i += 4) {
+                        const r = pixels[i];
+                        const g = pixels[i + 1];
+                        const b = pixels[i + 2];
+                        const a = pixels[i + 3];
+
+                        // 统计颜色样本
+                        const colorKey = `${r},${g},${b}`;
+                        colorSample[colorKey] = (colorSample[colorKey] || 0) + 1;
+
+                        // 检查是否为透明像素
+                        if (a > 0) {
+                            // 检查RGB值是否有变化
+                            if (r !== g || r !== b) {
+                                hasValidData = true;
+                                break;
+                            }
+                            // 检查是否有非纯灰色数据
+                            if (r !== 128 && r !== 200 && r !== 240 && r !== 248) {
+                                hasValidData = true;
+                                break;
+                            }
+                        }
+                    }
+
+                    console.log('🎨 颜色样本分析:', colorSample);
+
+                    // 更详细的检查：如果所有像素都是相同的颜色，可能意味着buffer为空
+                    const uniqueColors = Object.keys(colorSample);
+                    if (uniqueColors.length <= 2) {
+                        console.log('⚠️ 像素颜色单一，可能是空的绘制缓冲区');
+                        hasValidData = false;
+                    }
+
+                    if (!hasValidData) {
+                        console.log('⚠️ 像素数据为空或无效，preserveDrawingBuffer可能为false');
+                        return null;
+                    }
+
+                    console.log('✅ 检测到有效像素数据，创建截图...');
+
+                    // 创建新的canvas来保存截图
+                    const resultCanvas = document.createElement('canvas');
+                    resultCanvas.width = width;
+                    resultCanvas.height = height;
+                    const ctx = resultCanvas.getContext('2d');
+
+                    // WebGL读取的像素是上下翻转的，需要翻转
+                    const flippedData = new Uint8Array(pixels.length);
+                    for (let y = 0; y < height; y++) {
+                        for (let x = 0; x < width; x++) {
+                            const srcOffset = ((height - y - 1) * width + x) * 4;
+                            const destOffset = (y * width + x) * 4;
+                            flippedData[destOffset] = pixels[srcOffset];
+                            flippedData[destOffset + 1] = pixels[srcOffset + 1];
+                            flippedData[destOffset + 2] = pixels[srcOffset + 2];
+                            flippedData[destOffset + 3] = pixels[srcOffset + 3];
+                        }
+                    }
+
+                    // 将像素数据写入新canvas
+                    const imageData = ctx.createImageData(width, height);
+                    imageData.data.set(flippedData);
+                    ctx.putImageData(imageData, 0, 0);
+
+                    console.log('✅ WebGL截图创建成功');
+                    return resultCanvas;
+
+                } catch (pixelError) {
+                    console.error('❌ 像素读取失败:', pixelError);
+                    return null;
+                }
+
+            } catch (error) {
+                console.error('❌ WebGL截图过程出错:', error);
+                return null;
+            }
         }
 
         // 备用截图方案 - 增强版
