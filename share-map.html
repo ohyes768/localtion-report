@@ -45,6 +45,15 @@
             background: #f5f5f5;
         }
 
+        .share-btn {
+            background: #34C759;
+            color: white;
+        }
+
+        .share-btn:hover {
+            background: #2FA54E;
+        }
+
         /* 车辆信息面板 */
         .car-info-panel {
             position: absolute;
@@ -126,6 +135,107 @@
             border-radius: 8px;
             box-shadow: 0 2px 8px rgba(0,0,0,0.1);
         }
+
+        /* 分享截图预览 */
+        .share-preview {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.8);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 10000;
+            padding: 20px;
+        }
+
+        .share-preview img {
+            max-width: 100%;
+            max-height: 70vh;
+            border-radius: 8px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+            margin-bottom: 20px;
+        }
+
+        .share-actions {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        .share-action-btn {
+            background: #007AFF;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .share-action-btn:hover {
+            background: #0056D6;
+        }
+
+        .share-action-btn.secondary {
+            background: #666;
+        }
+
+        .share-action-btn.secondary:hover {
+            background: #555;
+        }
+
+        .share-action-btn.success {
+            background: #34C759;
+        }
+
+        .share-action-btn.success:hover {
+            background: #2FA54E;
+        }
+
+        /* 截图加载动画 */
+        .screenshot-loading {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 20px 30px;
+            border-radius: 8px;
+            text-align: center;
+            z-index: 10001;
+        }
+
+        .screenshot-loading .spinner {
+            width: 40px;
+            height: 40px;
+            border: 3px solid rgba(255,255,255,0.3);
+            border-top: 3px solid white;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 15px;
+        }
+
+        /* 长按提示 */
+        .long-press-hint {
+            position: fixed;
+            bottom: 100px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0, 0, 0, 0.7);
+            color: white;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 14px;
+            z-index: 9999;
+            pointer-events: none;
+        }
     </style>
 </head>
 <body>
@@ -149,6 +259,7 @@
         <button class="control-btn" onclick="zoomIn()">放大</button>
         <button class="control-btn" onclick="zoomOut()">缩小</button>
         <button class="control-btn" onclick="recenter()">重新居中</button>
+        <button class="control-btn share-btn" onclick="shareMap()">📤 分享</button>
     </div>
 
     <!-- 车辆信息面板 -->
@@ -390,6 +501,314 @@
             console.log('页面完全加载');
             if (!mapInitialized) {
                 setTimeout(initMap, 500);
+            }
+        });
+
+        // 分享功能相关变量
+        let longPressTimer = null;
+        let isLongPressing = false;
+
+        // 截图功能
+        async function captureMap() {
+            return new Promise((resolve, reject) => {
+                try {
+                    // 隐藏控制按钮，确保截图干净
+                    const controls = document.getElementById('map-controls');
+                    const carInfo = document.getElementById('car-info');
+                    const originalControlsDisplay = controls.style.display;
+                    const originalCarInfoDisplay = carInfo.style.display;
+
+                    // 临时隐藏控制按钮
+                    controls.style.display = 'none';
+
+                    // 等待渲染完成
+                    setTimeout(() => {
+                        // 使用html2canvas或直接使用canvas截图
+                        if (window.html2canvas) {
+                            html2canvas(document.getElementById('map-container'), {
+                                useCORS: true,
+                                allowTaint: true,
+                                scale: 2, // 提高截图质量
+                                logging: false
+                            }).then(canvas => {
+                                // 恢复控制按钮显示
+                                controls.style.display = originalControlsDisplay;
+                                carInfo.style.display = originalCarInfoDisplay;
+
+                                // 添加车辆信息水印
+                                addWatermark(canvas);
+                                resolve(canvas);
+                            }).catch(error => {
+                                // 恢复控制按钮显示
+                                controls.style.display = originalControlsDisplay;
+                                carInfo.style.display = originalCarInfoDisplay;
+
+                                console.error('截图失败:', error);
+                                // 使用备用方案
+                                fallbackScreenshot().then(resolve).catch(reject);
+                            });
+                        } else {
+                            // 直接使用备用方案
+                            controls.style.display = originalControlsDisplay;
+                            carInfo.style.display = originalCarInfoDisplay;
+                            fallbackScreenshot().then(resolve).catch(reject);
+                        }
+                    }, 200);
+                } catch (error) {
+                    reject(error);
+                }
+            });
+        }
+
+        // 备用截图方案
+        async function fallbackScreenshot() {
+            const mapContainer = document.getElementById('map-container');
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+
+            // 设置canvas尺寸
+            canvas.width = mapContainer.offsetWidth * 2;
+            canvas.height = mapContainer.offsetHeight * 2;
+            ctx.scale(2, 2);
+
+            // 绘制背景
+            ctx.fillStyle = '#f0f0f0';
+            ctx.fillRect(0, 0, canvas.width/2, canvas.height/2);
+
+            // 绘制地图占位图
+            ctx.fillStyle = '#ccc';
+            ctx.font = '20px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText('地图截图', canvas.width/4, canvas.height/4);
+
+            // 添加水印信息
+            addWatermark(canvas);
+            return canvas;
+        }
+
+        // 添加水印
+        function addWatermark(canvas) {
+            const ctx = canvas.getContext('2d');
+            ctx.font = '14px Arial';
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+            ctx.textAlign = 'left';
+
+            const watermark = `${carData.name} (${carData.plate})\n📍 ${carData.address}\n🕒 ${carData.time}`;
+            const lines = watermark.split('\n');
+            let y = canvas.height - 80;
+
+            // 添加白色背景
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+            ctx.fillRect(10, y - 20, 300, 70);
+
+            // 绘制文字
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
+            lines.forEach(line => {
+                ctx.fillText(line, 20, y);
+                y += 20;
+            });
+        }
+
+        // 分享地图
+        async function shareMap() {
+            showLoading('正在生成截图...');
+
+            try {
+                const canvas = await captureMap();
+                hideLoading();
+                showSharePreview(canvas);
+            } catch (error) {
+                hideLoading();
+                console.error('分享失败:', error);
+                alert('截图失败，请重试');
+            }
+        }
+
+        // 显示加载动画
+        function showLoading(message = '处理中...') {
+            const loadingDiv = document.createElement('div');
+            loadingDiv.className = 'screenshot-loading';
+            loadingDiv.id = 'screenshot-loading';
+            loadingDiv.innerHTML = `
+                <div class="spinner"></div>
+                <div>${message}</div>
+            `;
+            document.body.appendChild(loadingDiv);
+        }
+
+        // 隐藏加载动画
+        function hideLoading() {
+            const loading = document.getElementById('screenshot-loading');
+            if (loading) {
+                loading.remove();
+            }
+        }
+
+        // 显示分享预览
+        function showSharePreview(canvas) {
+            const previewDiv = document.createElement('div');
+            previewDiv.className = 'share-preview';
+            previewDiv.innerHTML = `
+                <img src="${canvas.toDataURL('image/png')}" alt="地图截图">
+                <div class="share-actions">
+                    <button class="share-action-btn success" onclick="saveToAlbum(this)">💾 保存到相册</button>
+                    <button class="share-action-btn" onclick="copyToClipboard(this)">📋 复制图片</button>
+                    <button class="share-action-btn secondary" onclick="shareText()">📤 分享位置信息</button>
+                    <button class="share-action-btn secondary" onclick="closeSharePreview()">✖ 关闭</button>
+                </div>
+                <div class="long-press-hint">长按图片可以分享到微信</div>
+            `;
+
+            document.body.appendChild(previewDiv);
+
+            // 长按图片功能
+            const img = previewDiv.querySelector('img');
+            img.addEventListener('touchstart', handleLongPressStart, { passive: true });
+            img.addEventListener('touchend', handleLongPressEnd, { passive: true });
+            img.addEventListener('mousedown', handleLongPressStart);
+            img.addEventListener('mouseup', handleLongPressEnd);
+            img.addEventListener('mouseleave', handleLongPressEnd);
+
+            // 3秒后隐藏长按提示
+            setTimeout(() => {
+                const hint = previewDiv.querySelector('.long-press-hint');
+                if (hint) {
+                    hint.style.opacity = '0';
+                    setTimeout(() => hint.remove(), 300);
+                }
+            }, 3000);
+        }
+
+        // 长按处理
+        function handleLongPressStart(e) {
+            e.preventDefault();
+            isLongPressing = false;
+            longPressTimer = setTimeout(() => {
+                isLongPressing = true;
+                // 显示提示
+                showLongPressHint('长按成功！可以分享到微信了');
+            }, 800);
+        }
+
+        function handleLongPressEnd(e) {
+            if (longPressTimer) {
+                clearTimeout(longPressTimer);
+                longPressTimer = null;
+            }
+        }
+
+        // 显示长按提示
+        function showLongPressHint(message) {
+            let hint = document.querySelector('.long-press-hint');
+            if (!hint) {
+                hint = document.createElement('div');
+                hint.className = 'long-press-hint';
+                document.body.appendChild(hint);
+            }
+            hint.textContent = message;
+            hint.style.opacity = '1';
+
+            setTimeout(() => {
+                hint.style.opacity = '0';
+                setTimeout(() => hint.remove(), 300);
+            }, 2000);
+        }
+
+        // 保存到相册
+        async function saveToAlbum(btn) {
+            try {
+                const img = btn.closest('.share-preview').querySelector('img');
+                const link = document.createElement('a');
+                link.download = `车辆位置_${carData.name}_${new Date().getTime()}.png`;
+                link.href = img.src;
+                link.click();
+
+                showLongPressHint('图片已保存到相册');
+            } catch (error) {
+                console.error('保存失败:', error);
+                showLongPressHint('保存失败，请重试');
+            }
+        }
+
+        // 复制到剪贴板
+        async function copyToClipboard(btn) {
+            try {
+                const img = btn.closest('.share-preview').querySelector('img');
+
+                // 尝试复制图片
+                if (navigator.clipboard && navigator.clipboard.write) {
+                    const blob = await (await fetch(img.src)).blob();
+                    await navigator.clipboard.write([
+                        new ClipboardItem({ 'image/png': blob })
+                    ]);
+                    showLongPressHint('图片已复制到剪贴板');
+                } else {
+                    // 备用方案：复制下载链接
+                    await navigator.clipboard.writeText(img.src);
+                    showLongPressHint('图片链接已复制');
+                }
+            } catch (error) {
+                console.error('复制失败:', error);
+                showLongPressHint('复制失败，请长按图片保存');
+            }
+        }
+
+        // 分享文字信息
+        async function shareText() {
+            const shareText = `🚗 ${carData.name} (${carData.plate})\n📍 当前位置：${carData.address}\n🕒 更新时间：${carData.time}\n🔗 查看地图：${window.location.href}`;
+
+            try {
+                if (navigator.share) {
+                    await navigator.share({
+                        title: `${carData.name} 位置分享`,
+                        text: shareText,
+                        url: window.location.href
+                    });
+                } else {
+                    await navigator.clipboard.writeText(shareText);
+                    showLongPressHint('位置信息已复制到剪贴板');
+                }
+            } catch (error) {
+                console.error('分享失败:', error);
+                showLongPressHint('分享失败，请重试');
+            }
+        }
+
+        // 关闭分享预览
+        function closeSharePreview() {
+            const preview = document.querySelector('.share-preview');
+            if (preview) {
+                preview.remove();
+            }
+        }
+
+        // 动态加载html2canvas库
+        function loadHtml2Canvas() {
+            return new Promise((resolve, reject) => {
+                if (window.html2canvas) {
+                    resolve();
+                    return;
+                }
+
+                const script = document.createElement('script');
+                script.src = 'https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js';
+                script.onload = resolve;
+                script.onerror = reject;
+                document.head.appendChild(script);
+            });
+        }
+
+        // 页面加载时预加载html2canvas
+        document.addEventListener('DOMContentLoaded', function() {
+            loadHtml2Canvas().catch(() => {
+                console.log('html2canvas加载失败，将使用备用截图方案');
+            });
+        });
+
+        // 监听来自父窗口的消息
+        window.addEventListener('message', function(event) {
+            if (event.data && event.data.action === 'share') {
+                shareMap();
             }
         });
     </script>

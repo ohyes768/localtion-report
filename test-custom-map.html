@@ -111,6 +111,7 @@
             <button class="test-btn" onclick="loadTestLocation()">加载测试位置</button>
             <button class="test-btn" onclick="openFullscreen()">全屏打开</button>
             <button class="test-btn" onclick="refreshMap()">刷新地图</button>
+            <button class="test-btn" onclick="testShareFeature()" style="background: #34C759;">📤 测试分享功能</button>
         </div>
 
         <div class="test-info">
@@ -255,6 +256,17 @@
             const iframe = document.getElementById('map-frame');
             const currentSrc = iframe.src;
             iframe.src = currentSrc;
+        }
+
+        function testShareFeature() {
+            const iframe = document.getElementById('map-frame');
+            if (iframe.src) {
+                // 在iframe中触发分享功能
+                iframe.contentWindow.postMessage({ action: 'share' }, '*');
+                alert('已向iframe发送分享指令，请在地图中查看效果');
+            } else {
+                alert('请先选择一辆车辆加载地图');
+            }
         }
 
         // 添加键盘快捷键
