@@ -6,9 +6,9 @@ class MapManager {
         this.currentLocation = null;
         this.isMapLoaded = false;
         this.infoWindow = null;
-        this.addressCache = new Map();
         this.retryCount = 0;
         this.addressAPILimited = false; // 地址API配额限制标志
+        // 移除addressCache，不再使用缓存
     }
 
     // 初始化地图
@@ -894,7 +894,7 @@ class MapManager {
     }
 
   
-    // 逆地理编码获取地址（带用量控制）
+    // 逆地理编码获取地址（不使用缓存）
     async getAddressFromLocation(location) {
         // 如果API配额已用完，直接返回坐标信息
         if (this.addressAPILimited) {
@@ -905,34 +905,12 @@ class MapManager {
             return '位置未知';
         }
 
-        const cacheKey = `${location.lat.toFixed(4)}_${location.lng.toFixed(4)}`;
-
-        // 检查内存缓存
-        if (this.addressCache.has(cacheKey)) {
-            const cached = this.addressCache.get(cacheKey);
-            if (!this._isPositionStale(cached.timestamp, CACHE_CONFIG.addressCacheTime)) {
-                if (APP_CONFIG.debug) {
-                    console.log('使用缓存的地址:', cached.address);
-                }
-                return cached.address;
-            }
-        }
-
-        // 检查本地存储缓存
-        const storageKey = `address_${cacheKey}`;
-        const storageCache = Utils.storage.get(storageKey);
-        if (storageCache && !this._isPositionStale(storageCache.timestamp || Date.now(), CACHE_CONFIG.addressCacheTime)) {
-            if (APP_CONFIG.debug) {
-                console.log('使用本地缓存的地址:', storageCache.address);
-            }
-            return storageCache.address;
-        }
-
         try {
             const params = new URLSearchParams({
                 location: `${location.lat},${location.lng}`,
                 key: MAP_CONFIG.key,
-                get_poi: 0  // 关闭POI查询减少数据量
+                get_poi: 0,  // 关闭POI查询减少数据量
+                _: Date.now() // 添加时间戳防止缓存
             });
 
             const url = `${API_CONFIG.tencentMap.geocoder}?${params.toString()}`;
@@ -942,27 +920,10 @@ class MapManager {
 
             if (data.status === 0 && data.result) {
                 const address = data.result.address || '位置未知';
-
-                // 缓存到内存
-                this.addressCache.set(cacheKey, {
-                    address: address,
-                    timestamp: Date.now()
-                });
-
-                // 缓存到本地存储（30分钟）
-                Utils.storage.set(storageKey, {
-                    address: address,
-                    timestamp: Date.now()
-                }, 30 * 60 * 1000);
-
-                if (APP_CONFIG.debug) {
-                    console.log('获取到新地址:', address);
-                }
-
                 return address;
             } else {
                 // 检查是否是配额限制错误
-                if (data.message && data.message.includes('limit') || data.message.includes('quota')) {
+                if (data.message && (data.message.includes('limit') || data.message.includes('quota'))) {
                     this.addressAPILimited = true;
                     if (APP_CONFIG.debug) {
                         console.warn('地址解析API达到限制，切换到坐标显示模式');

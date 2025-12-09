@@ -38,6 +38,9 @@ class VehicleLocationApp {
             // 绑定事件
             this.bindEvents();
 
+            // 清除所有缓存，确保测试准确性
+            this.locationManager.clearAllCache();
+
             // 设置页面可见性变化监听
             this.setupVisibilityHandling();
 

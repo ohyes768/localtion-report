@@ -5,26 +5,16 @@ class LocationManager {
         this.watchId = null;
         this.callbacks = [];
         this.isWatching = false;
-        this.lastPositionTime = 0;
-        this.minPositionInterval = 5000; // 最小定位间隔5秒
+        // 移除缓存相关配置，强制每次都获取最新位置
     }
 
     // 获取当前位置
     getCurrentPosition(options = {}) {
         return new Promise((resolve, reject) => {
-            // 检查定位频率限制
-            const now = Date.now();
-            if (now - this.lastPositionTime < this.minPositionInterval &&
-                this.currentPosition &&
-                !options.force) {
-                resolve(this.currentPosition);
-                return;
-            }
-
             const finalOptions = {
                 enableHighAccuracy: true,
                 timeout: 20000,
-                maximumAge: 0,
+                maximumAge: 0, // 强制不使用缓存位置
                 ...options
             };
 
@@ -32,25 +22,14 @@ class LocationManager {
                 (position) => {
                     const location = this._processPosition(position);
                     this.currentPosition = location;
-                    this.lastPositionTime = Date.now();
-
-                    // 缓存位置信息
-                    Utils.storage.set('last_position', location, CACHE_CONFIG.locationCacheTime);
-
                     this.notifyCallbacks(location);
                     resolve(location);
                 },
                 (error) => {
-                    // 使用缓存位置或默认位置
-                    const cachedPosition = this._getCachedPosition();
-                    if (cachedPosition && !options.force) {
-                        console.log('使用缓存位置');
-                        resolve(cachedPosition);
-                    } else {
-                        console.warn('定位失败，使用默认位置');
-                        const defaultLocation = this._createDefaultLocation();
-                        resolve(defaultLocation);
-                    }
+                    // 直接使用默认位置，不再使用缓存
+                    console.warn('定位失败，使用默认位置');
+                    const defaultLocation = this._createDefaultLocation();
+                    resolve(defaultLocation);
                 },
                 finalOptions
             );
@@ -88,20 +67,6 @@ class LocationManager {
         defaultLocation.accuracyLevel = '模拟定位';
         defaultLocation.quality = 50;
         return defaultLocation;
-    }
-
-    // 获取缓存的最后位置
-    _getCachedPosition() {
-        if (this.currentPosition && !this.isPositionStale(this.currentPosition.timestamp, 300000)) {
-            return this.currentPosition;
-        }
-
-        const cached = Utils.storage.get('last_position');
-        if (cached && !this.isPositionStale(cached.timestamp, 300000)) {
-            return cached;
-        }
-
-        return null;
     }
 
     // 计算位置质量评分
@@ -191,17 +156,9 @@ class LocationManager {
         return '极低精度';
     }
 
-    // 获取缓存的最后位置
+    // 获取当前位置
     getLastPosition() {
-        if (this.currentPosition) {
-            return this.currentPosition;
-        }
-        return Utils.storage.get('last_position');
-    }
-
-    // 检查位置是否过时
-    isPositionStale(timestamp, maxAge = CACHE_CONFIG.locationCacheTime) {
-        return (Date.now() - timestamp) > maxAge;
+        return this.currentPosition;
     }
 
     // 计算两点间距离
@@ -251,11 +208,32 @@ class LocationManager {
         };
     }
 
+    // 清除所有位置缓存
+    clearAllCache() {
+        // 清除本地存储中的位置缓存
+        Utils.storage.remove('last_position');
+
+        // 清除地址缓存
+        const keys = Object.keys(localStorage);
+        keys.forEach(key => {
+            if (key.startsWith('address_')) {
+                Utils.storage.remove(key);
+            }
+        });
+
+        // 清除分享页面缓存
+        const shareKeys = keys.filter(key => key.startsWith('sharepage_'));
+        shareKeys.forEach(key => {
+            Utils.storage.remove(key);
+        });
+
+        console.log('✅ 已清除所有位置和地址缓存');
+    }
+
     // 销毁定位管理器
     destroy() {
         this.stopWatching();
         this.currentPosition = null;
         this.callbacks = [];
-        this.lastPositionTime = 0;
     }
 }
