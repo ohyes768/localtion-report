@@ -121,6 +121,7 @@ body {
     flex: 1;
     width: 100%;
     min-height: 300px;
+    max-height: 50vh; /* 限制地图最大高度，为坐标信息和按钮留出空间 */
 }
 
 .action-buttons {
@@ -129,6 +130,9 @@ body {
     gap: 10px;
     background: #fff;
     box-shadow: 0 -2px 4px rgba(0,0,0,0.1);
+    position: relative; /* 确保按钮在最上层 */
+    z-index: 10;
+    flex-shrink: 0; /* 防止按钮被压缩 */
 }
 
 /* 按钮样式 */
@@ -414,7 +418,7 @@ body {
 .coordinates-info {
     background: linear-gradient(135deg, #f8f9ff 0%, #e8f0ff 100%);
     border-radius: 12px;
-    margin-bottom: 15px;
+    margin-bottom: 10px;
     border: 1px solid #e1e8ff;
     animation: slideIn 0.3s ease-out;
 }
@@ -686,32 +690,32 @@ body {
 
 /* 坐标转换信息样式 */
 .coordinate-conversion {
-    margin-top: 12px;
-    padding: 12px;
+    margin-top: 8px;
+    padding: 8px 10px;
     background: #f0f8ff;
-    border-radius: 8px;
+    border-radius: 6px;
     border: 1px dashed #4CAF50;
 }
 
 .conversion-title {
-    font-size: 13px;
+    font-size: 12px;
     font-weight: 600;
     color: #2E7D32;
-    margin-bottom: 8px;
+    margin-bottom: 6px;
     text-align: center;
 }
 
 .conversion-details {
     display: flex;
     flex-direction: column;
-    gap: 6px;
+    gap: 4px;
 }
 
 .conversion-item {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    font-size: 12px;
+    font-size: 11px;
 }
 
 .conversion-label {
@@ -724,6 +728,7 @@ body {
     font-family: 'Courier New', monospace;
     font-weight: 600;
     background: rgba(255, 255, 255, 0.8);
-    padding: 2px 6px;
-    border-radius: 4px;
+    padding: 1px 4px;
+    border-radius: 3px;
+    font-size: 10px;
 }
