@@ -9,17 +9,7 @@ class VehicleLocationApp {
         this.pageHistory = [];
         this.initStartTime = null;
 
-        // 添加调试信息
-        if (typeof window !== 'undefined') {
-            window.appDebug = {
-                log: (...args) => {
-                    if (APP_CONFIG.debug) {
-                        console.log('[APP]', ...args);
-                    }
-                }
-            };
-        }
-    }
+      }
 
     // 初始化应用
     async init() {
@@ -58,10 +48,7 @@ class VehicleLocationApp {
 
             // 记录初始化完成时间
             const initTime = Date.now() - this.initStartTime;
-            if (APP_CONFIG.debug) {
-                console.log(`应用初始化完成，耗时: ${initTime}ms`);
-            }
-
+        
         } catch (error) {
             Utils.logError(error, {
                 type: 'app_initialization',
@@ -80,18 +67,10 @@ class VehicleLocationApp {
         }
 
         // 检查是否为移动设备
-        if (!Utils.isMobileDevice()) {
-            console.warn('检测到非移动设备，部分功能可能体验不佳');
-        }
-
+      
         // 记录设备信息
         const deviceInfo = Utils.getDeviceInfo();
         Utils.storage.set('device_info', deviceInfo, 24 * 60 * 60 * 1000); // 缓存24小时
-
-        if (APP_CONFIG.debug) {
-            console.log('设备信息:', deviceInfo);
-        }
-    }
 
     // 初始化UI
     initUI() {

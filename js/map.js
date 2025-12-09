@@ -76,9 +76,6 @@ class MapManager {
             // 监听地图加载完成事件
             const onMapLoad = () => {
                 this.isMapLoaded = true;
-                if (APP_CONFIG.debug) {
-                    console.log('地图加载完成');
-                }
                 resolve();
             };
 

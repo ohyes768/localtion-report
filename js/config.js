@@ -28,11 +28,11 @@ const VEHICLE_CONFIG = {
 
 // 地图API配置
 const MAP_CONFIG = {
-    key: '67PBZ-AWOWQ-TTW5A-BTI3M-BNMHH-2YBXZ', // 需要替换为实际的腾讯地图API Key
-    center: [39.908692, 116.397477], // 北京天安门
+    key: '67PBZ-AWOWQ-TTW5A-BTI3M-BNMHH-2YBXZ',
+    center: [39.908692, 116.397477],
     zoom: 16,
     style: 'normal',
-    // 默认测试位置（杭州西湖附近，用于测试）
+    // 默认测试位置（杭州西湖附近）
     defaultLocation: {
         lat: 30.204763,
         lng: 120.204781,
@@ -49,22 +49,9 @@ const MAP_CONFIG = {
 // 应用配置
 const APP_CONFIG = {
     title: '家庭车辆位置分享系统',
-    version: '1.0.0', // 版本号，用于缓存清理
-    debug: true, // 开发环境设为true
-    locationTimeout: 20000, // 定位超时时间（毫秒）- 增加到20秒
-    // 自动版本号（基于部署时间）
-    buildVersion: new Date().toISOString().slice(0, 10).replace(/-/g, ''), // 格式: 20241208
-    mapZoomLevels: {
-        default: 16,
-        detailed: 18,
-        overview: 14
-    },
-    // 分析功能配置
-    analysis: {
-        enableLocationAnalysis: true, // 启用位置分析功能
-        showParkingRecommendation: true, // 显示停车建议
-        showLocationHistory: false // 是否显示历史位置（暂不实现）
-    }
+    version: '1.0.0',
+    debug: false,
+    locationTimeout: 20000
 };
 
 // 错误信息配置
@@ -77,46 +64,9 @@ const ERROR_MESSAGES = {
     MAP_LOAD_ERROR: '地图加载失败，请刷新页面'
 };
 
-// 分享配置
-const SHARE_CONFIG = {
-    screenshotSize: {
-        width: 600,
-        height: 400
-    },
-    mapTypes: ['roadmap', 'satellite'],
-    defaultMapType: 'roadmap'
-};
-
-// API配置
-const API_CONFIG = {
-    // 腾讯地图API
-    tencentMap: {
-        baseUrl: 'https://apis.map.qq.com',
-        geocoder: 'https://apis.map.qq.com/ws/geocoder/v1/',
-        staticMap: 'https://apis.map.qq.com/ws/staticmap/v2/'
-    },
-    // 请求超时时间
-    timeout: 8000
-};
-
 // 缓存配置
 const CACHE_CONFIG = {
-    // 地址缓存时间（毫秒）
     addressCacheTime: 5 * 60 * 1000, // 5分钟
-    // 位置缓存时间（毫秒）
-    locationCacheTime: 30 * 1000, // 30秒
-    // 截图缓存时间（毫秒）
+    locationCacheTime: 30 * 1000,    // 30秒
     screenshotCacheTime: 2 * 60 * 1000 // 2分钟
-};
-
-// 性能配置
-const PERFORMANCE_CONFIG = {
-    // 防抖延迟（毫秒）
-    debounceDelay: 300,
-    // 节流间隔（毫秒）
-    throttleInterval: 100,
-    // 最大重试次数
-    maxRetries: 3,
-    // 重试间隔（毫秒）
-    retryInterval: 1000
 };
