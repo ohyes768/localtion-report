@@ -673,6 +673,9 @@ class VehicleLocationApp {
                 }
             }
 
+            // 更新坐标转换信息
+            this.updateCoordinateConversionDisplay(location);
+
             // 显示默认位置提示
             if (location.isDefaultLocation) {
                 this.showDefaultLocationTip();
@@ -680,6 +683,59 @@ class VehicleLocationApp {
 
         } catch (error) {
             console.error('更新经纬度显示失败:', error);
+        }
+    }
+
+    // 更新坐标转换信息显示
+    updateCoordinateConversionDisplay(location) {
+        if (!location.originalCoords || !location.convertedCoords) {
+            // 如果没有坐标转换信息，隐藏转换区域
+            const conversionDiv = document.getElementById('coordinate-conversion');
+            if (conversionDiv) {
+                conversionDiv.style.display = 'none';
+            }
+            return;
+        }
+
+        try {
+            // 显示坐标转换区域
+            const conversionDiv = document.getElementById('coordinate-conversion');
+            if (conversionDiv) {
+                conversionDiv.style.display = 'block';
+            }
+
+            // 更新原始坐标 (WGS-84)
+            const originalCoordsEl = document.getElementById('original-coords');
+            if (originalCoordsEl) {
+                const original = location.originalCoords;
+                originalCoordsEl.textContent = `${original.lat.toFixed(6)}, ${original.lng.toFixed(6)}`;
+            }
+
+            // 更新转换坐标 (GCJ-02)
+            const convertedCoordsEl = document.getElementById('converted-coords');
+            if (convertedCoordsEl) {
+                const converted = location.convertedCoords;
+                convertedCoordsEl.textContent = `${converted.lat.toFixed(6)}, ${converted.lng.toFixed(6)}`;
+            }
+
+            // 更新坐标偏移距离
+            const offsetDistanceEl = document.getElementById('offset-distance');
+            if (offsetDistanceEl) {
+                const offset = location.offsetDistance || 0;
+                offsetDistanceEl.textContent = `${offset.toFixed(0)}米`;
+
+                // 根据偏移距离设置颜色
+                if (offset > 100) {
+                    offsetDistanceEl.style.color = '#ff4444'; // 红色 - 大偏移
+                } else if (offset > 50) {
+                    offsetDistanceEl.style.color = '#ff9500'; // 橙色 - 中等偏移
+                } else {
+                    offsetDistanceEl.style.color = '#4CAF50'; // 绿色 - 小偏移
+                }
+            }
+
+        } catch (error) {
+            console.error('更新坐标转换显示失败:', error);
         }
     }
 
