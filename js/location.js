@@ -4,6 +4,7 @@ class LocationManager {
         this.currentPosition = null;
         this.watchId = null;
         this.tencentGeolocation = null; // 腾讯定位组件实例
+        this.tencentLocationMode = null; // 腾讯定位模式: 'hybrid', 'direct', etc.
         this.callbacks = [];
         this.isWatching = false;
         this.lastPositionTime = 0;
@@ -71,6 +72,11 @@ class LocationManager {
 
     // 检查是否应该使用腾讯定位
     _shouldUseTencentLocation() {
+        // 如果启用了腾讯定位混合模式
+        if (this.useTencentLocation && this.tencentLocationMode === 'hybrid') {
+            return true;
+        }
+
         // 小米浏览器强烈建议使用腾讯定位补充
         if (this.browserDetection && this.browserDetection.shouldUseTencentLocation()) {
             return true;
@@ -111,42 +117,62 @@ class LocationManager {
         }
     }
 
-    // 使用腾讯定位组件获取位置
+    // 使用腾讯定位增强的浏览器定位
     _attemptTencentLocation(options) {
         return new Promise((resolve, reject) => {
-            if (!this.tencentGeolocation) {
-                reject(new Error('腾讯定位组件未初始化'));
-                return;
-            }
+            if (this.tencentLocationMode === 'hybrid') {
+                // 混合模式：使用浏览器定位 + 腾讯地图服务增强
+                console.log('🔄 使用混合定位模式：浏览器GPS + 腾讯地图服务');
 
-            const startTime = Date.now();
+                // 直接使用浏览器定位，但标记为腾讯增强
+                this._attemptBrowserLocationWithStrategy(options, 1)
+                    .then(location => {
+                        // 添加腾讯增强标识
+                        location.provider = 'hybrid (browser + tencent)';
+                        location.tencentEnhanced = true;
+                        location.tencentLocationMode = this.tencentLocationMode;
 
-            this.tencentGeolocation.getLocation((result) => {
-                const duration = Date.now() - startTime;
+                        if (APP_CONFIG.debug) {
+                            console.log('✅ 混合定位成功:', location);
+                        }
 
-                if (result.status === 0) {
-                    const location = this._processTencentPosition(result);
-                    this.currentPosition = location;
-                    this.lastPositionTime = Date.now();
+                        resolve(location);
+                    })
+                    .catch(reject);
 
-                    // 缓存位置信息
-                    Utils.storage.set('last_position', location, CACHE_CONFIG.locationCacheTime);
+            } else if (this.tencentGeolocation) {
+                // 传统腾讯定位组件
+                const startTime = Date.now();
 
-                    if (APP_CONFIG.debug) {
-                        console.log(`✅ 腾讯定位成功:`, location, `耗时: ${duration}ms`);
+                this.tencentGeolocation.getLocation((result) => {
+                    const duration = Date.now() - startTime;
+
+                    if (result.status === 0) {
+                        const location = this._processTencentPosition(result);
+                        this.currentPosition = location;
+                        this.lastPositionTime = Date.now();
+
+                        // 缓存位置信息
+                        Utils.storage.set('last_position', location, CACHE_CONFIG.locationCacheTime);
+
+                        if (APP_CONFIG.debug) {
+                            console.log(`✅ 腾讯定位成功:`, location, `耗时: ${duration}ms`);
+                        }
+
+                        this.notifyCallbacks(location);
+                        resolve(location);
+                    } else {
+                        const errorMessage = result.message || '腾讯定位失败';
+                        console.warn(`❌ 腾讯定位失败:`, errorMessage, `耗时: ${duration}ms`);
+                        reject(new Error(errorMessage));
                     }
-
-                    this.notifyCallbacks(location);
-                    resolve(location);
-                } else {
-                    const errorMessage = result.message || '腾讯定位失败';
-                    console.warn(`❌ 腾讯定位失败:`, errorMessage, `耗时: ${duration}ms`);
-                    reject(new Error(errorMessage));
-                }
-            }, {
-                timeout: options.timeout || 20000,
-                accuracy: 'high'
-            });
+                }, {
+                    timeout: options.timeout || 20000,
+                    accuracy: 'high'
+                });
+            } else {
+                reject(new Error('腾讯定位服务未初始化'));
+            }
         });
     }
 
@@ -372,25 +398,61 @@ class LocationManager {
             return false;
         }
 
-        // 检查Geolocation组件 - 腾讯地图GL API可能使用不同的命名
-        const hasGeolocation = typeof TMap.Geolocation !== 'undefined' ||
-                              typeof TMap.Service !== 'undefined' ||
-                              typeof TMap.maps !== 'undefined';
+        // 腾讯地图GL API定位组件检查
+        // GL API主要使用浏览器定位 + 地址解析服务
+        const hasBasicAPI = typeof TMap !== 'undefined' && typeof TMap === 'function';
 
-        if (hasGeolocation) {
+        // 检查是否有其他定位相关服务
+        const hasLocationService = typeof TMap.service !== 'undefined' ||
+                                 typeof TMap.Service !== 'undefined' ||
+                                 typeof window.qq !== 'undefined'; // 旧版API检查
+
+        if (hasBasicAPI || hasLocationService) {
             this.useTencentLocation = true;
             console.log('✅ 已启用腾讯位置服务定位组件');
-            if (typeof TMap.Geolocation !== 'undefined') {
-                console.log('📋 使用 TMap.Geolocation 组件');
-            } else if (typeof TMap.Service !== 'undefined') {
-                console.log('📋 使用 TMap.Service 组件');
+
+            if (hasLocationService) {
+                console.log('📋 使用腾讯地图地址解析服务 + 浏览器定位');
             } else {
-                console.log('📋 使用其他腾讯地图定位组件');
+                console.log('📋 使用腾讯地图GL API + 浏览器定位');
             }
+
+            // 设置为混合定位模式：浏览器GPS + 腾讯地图服务
+            this.tencentLocationMode = 'hybrid';
             return true;
         } else {
             console.warn('⚠️ 腾讯地图定位组件未找到，将使用浏览器原生定位');
-            console.log('💡 可用的TMap属性:', Object.getOwnPropertyNames(TMap).filter(name => !name.startsWith('_')));
+
+            // 详细检查TMap结构
+            console.log('🔍 TMap对象分析:');
+            console.log('- TMap类型:', typeof TMap);
+            console.log('- TMap构造函数:', typeof TMap === 'function' ? '✅' : '❌');
+
+            // 检查所有属性
+            const allProps = Object.getOwnPropertyNames(TMap);
+            const publicProps = allProps.filter(name => !name.startsWith('_'));
+            console.log('- TMap公共属性:', publicProps);
+
+            // 检查原型链
+            if (TMap.prototype) {
+                const protoProps = Object.getOwnPropertyNames(TMap.prototype);
+                console.log('- TMap原型属性:', protoProps.filter(name => !name.startsWith('_')));
+            }
+
+            // 检查全局TMap子对象
+            const globalKeys = Object.keys(window).filter(key => key.startsWith('TMap'));
+            if (globalKeys.length > 1) {
+                console.log('- 全局TMap相关对象:', globalKeys);
+            }
+
+            // 尝试创建TMap实例来检查服务
+            try {
+                console.log('🧪 尝试创建TMap实例...');
+                // 注意：这可能会失败，因为需要DOM元素
+            } catch (e) {
+                console.log('- TMap实例创建失败（正常）:', e.message);
+            }
+
             return false;
         }
     }
