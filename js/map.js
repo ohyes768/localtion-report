@@ -465,11 +465,11 @@ class MapManager {
             const cacheData = {
                 url: sharePageUrl,
                 timestamp: Date.now(),
-                source: '腾讯地图分享页面'
+                source: '自定义纯净地图分享页面'
             };
             Utils.storage.set(`sharepage_${cacheKey}`, cacheData, CACHE_CONFIG.screenshotCacheTime);
 
-            console.log('✅ 腾讯地图分享页面生成成功');
+            console.log('✅ 自定义纯净地图分享页面生成成功');
             return sharePageUrl;
 
         } catch (error) {
@@ -478,9 +478,9 @@ class MapManager {
         }
     }
 
-    // 生成腾讯地图分享页面
+    // 生成自定义地图分享页面（纯净无侧边栏）
     async _generateTencentSharePage(location, carInfo) {
-        console.log('🗺️ 生成腾讯地图分享页面...');
+        console.log('🗺️ 生成自定义纯净地图分享页面...');
 
         // 获取地址信息
         let address = '位置获取中...';
@@ -491,13 +491,31 @@ class MapManager {
             address = `${location.lat.toFixed(6)}, ${location.lng.toFixed(6)}`;
         }
 
-        // 生成腾讯地图标记页面URL（用于iframe嵌入）
-        const tencentMarkerUrl = this._generateTencentMarkerUrl(location, carInfo, address);
+        // 生成自定义地图页面URL（纯净无侧边栏）
+        const customMapUrl = this._generateCustomMapUrl(location, carInfo, address);
 
-        return tencentMarkerUrl;
+        console.log('✅ 自定义地图URL生成成功:', customMapUrl);
+        return customMapUrl;
     }
 
-    // 生成腾讯地图标记页面URL（用于iframe嵌入）
+    // 生成自定义地图页面URL（纯净无侧边栏）
+    _generateCustomMapUrl(location, carInfo, address) {
+        // 构建自定义地图页面的URL参数
+        const params = new URLSearchParams({
+            lat: location.lat.toFixed(6),
+            lng: location.lng.toFixed(6),
+            name: carInfo.name,
+            plate: carInfo.plate || '',
+            address: address || '位置信息',
+            color: carInfo.color || '#007AFF',
+            time: Utils.formatTime(new Date(location.timestamp || Date.now()))
+        });
+
+        // 返回自定义地图页面URL
+        return `share-map.html?${params.toString()}`;
+    }
+
+    // 生成腾讯地图标记页面URL（用于iframe嵌入）- 保留备用
     _generateTencentMarkerUrl(location, carInfo, address) {
         // 使用腾讯地图API生成标记页面
         const params = new URLSearchParams({

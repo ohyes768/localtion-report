@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>车辆位置地图</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            overflow: hidden;
+        }
+
+        #map-container {
+            width: 100vw;
+            height: 100vh;
+        }
+
+        /* 地图控制按钮样式 */
+        .map-controls {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            z-index: 1000;
+        }
+
+        .control-btn {
+            background: white;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            padding: 8px 12px;
+            margin-bottom: 5px;
+            cursor: pointer;
+            font-size: 12px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            transition: all 0.2s;
+        }
+
+        .control-btn:hover {
+            background: #f5f5f5;
+        }
+
+        /* 车辆信息面板 */
+        .car-info-panel {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            right: 20px;
+            background: white;
+            border-radius: 8px;
+            padding: 15px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            z-index: 1000;
+            max-width: 300px;
+        }
+
+        .car-title {
+            font-size: 16px;
+            font-weight: 600;
+            margin-bottom: 5px;
+            color: #333;
+        }
+
+        .car-address {
+            font-size: 14px;
+            color: #666;
+            margin-bottom: 8px;
+            line-height: 1.4;
+        }
+
+        .car-meta {
+            font-size: 12px;
+            color: #999;
+        }
+
+        .car-color-indicator {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+
+        /* 加载提示 */
+        .loading {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            color: #666;
+            font-size: 14px;
+        }
+
+        .loading-spinner {
+            width: 24px;
+            height: 24px;
+            border: 2px solid #f3f3f3;
+            border-top: 2px solid #007AFF;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 10px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* 错误提示 */
+        .error {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            color: #ff3b30;
+            font-size: 14px;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+    </style>
+</head>
+<body>
+    <!-- 地图容器 -->
+    <div id="map-container"></div>
+
+    <!-- 加载提示 -->
+    <div id="loading" class="loading">
+        <div class="loading-spinner"></div>
+        <div>地图加载中...</div>
+    </div>
+
+    <!-- 错误提示 -->
+    <div id="error" class="error" style="display: none;">
+        <div>地图加载失败</div>
+        <div style="font-size: 12px; margin-top: 10px;">请检查网络连接</div>
+    </div>
+
+    <!-- 地图控制按钮 -->
+    <div id="map-controls" class="map-controls" style="display: none;">
+        <button class="control-btn" onclick="zoomIn()">放大</button>
+        <button class="control-btn" onclick="zoomOut()">缩小</button>
+        <button class="control-btn" onclick="recenter()">重新居中</button>
+    </div>
+
+    <!-- 车辆信息面板 -->
+    <div id="car-info" class="car-info-panel" style="display: none;">
+        <div class="car-title">
+            <span class="car-color-indicator" id="car-color"></span>
+            <span id="car-name">车辆名称</span>
+        </div>
+        <div class="car-address" id="car-address">地址加载中...</div>
+        <div class="car-meta">
+            <span id="car-time">更新时间</span> • <span id="car-coords">坐标</span>
+        </div>
+    </div>
+
+    <!-- 腾讯地图API -->
+    <script charset="utf-8" src="https://map.qq.com/api/gljs?v=1.exp&key=67PBZ-AWOWQ-TTW5A-BTI3M-BNMHH-2YBXZ"></script>
+
+    <script>
+        // 全局变量
+        let map = null;
+        let marker = null;
+        let carData = {};
+
+        // 从URL参数获取车辆信息
+        function getUrlParams() {
+            const params = new URLSearchParams(window.location.search);
+            return {
+                lat: parseFloat(params.get('lat')) || 30.204763,
+                lng: parseFloat(params.get('lng')) || 120.204781,
+                name: params.get('name') || '车辆位置',
+                plate: params.get('plate') || '',
+                address: params.get('address') || '位置信息',
+                color: params.get('color') || '#007AFF',
+                time: params.get('time') || new Date().toLocaleString('zh-CN')
+            };
+        }
+
+        // 初始化地图
+        function initMap() {
+            try {
+                // 获取车辆数据
+                carData = getUrlParams();
+
+                // 检查TMap是否已加载
+                if (typeof TMap === 'undefined') {
+                    throw new Error('腾讯地图API未加载');
+                }
+
+                // 创建地图实例（使用官方推荐配置）
+                map = new TMap.Map('map-container', {
+                    center: new TMap.LatLng(carData.lat, carData.lng),
+                    zoom: 16,
+                    mapTypeId: TMap.MapTypeId.ROADMAP,
+                    pitch: 0,
+                    rotation: 0,
+                    showControl: false,  // 隐藏默认控件，使用自定义控件
+                    viewMode: '2D'      // 强制2D模式，提升性能
+                });
+
+                // 添加标记点
+                addMarker();
+
+                // 显示车辆信息
+                showCarInfo();
+
+                // 显示控制按钮
+                document.getElementById('map-controls').style.display = 'block';
+
+                // 隐藏加载提示
+                document.getElementById('loading').style.display = 'none';
+
+                console.log('✅ 地图初始化成功', carData);
+
+            } catch (error) {
+                console.error('❌ 地图初始化失败:', error);
+                showError();
+            }
+        }
+
+        // 添加标记点（使用官方推荐的MarkerStyle）
+        function addMarker() {
+            // 使用官方推荐的MarkerStyle构造函数
+            marker = new TMap.MultiMarker({
+                map: map,
+                styles: {
+                    'car-marker': new TMap.MarkerStyle({
+                        width: 32,
+                        height: 40,
+                        anchor: {x: 16, y: 40},
+                        src: createMarkerIcon()
+                    })
+                },
+                geometries: [{
+                    id: 'car',
+                    styleId: 'car-marker',
+                    position: new TMap.LatLng(carData.lat, carData.lng),
+                    properties: {
+                        title: carData.name,
+                        address: carData.address
+                    }
+                }]
+            });
+
+            // 点击标记显示信息窗口
+            marker.on('click', (evt) => {
+                const position = evt.geometry.position;
+                const properties = evt.geometry.properties;
+                showInfoWindow(position, properties);
+            });
+        }
+
+        // 创建标记图标（优化尺寸）
+        function createMarkerIcon() {
+            // 创建一个优化的标记图标（32x40）
+            const canvas = document.createElement('canvas');
+            canvas.width = 32;
+            canvas.height = 40;
+            const ctx = canvas.getContext('2d');
+
+            // 绘制标记形状
+            ctx.fillStyle = carData.color;
+            ctx.beginPath();
+            ctx.moveTo(16, 0);
+            ctx.lineTo(32, 40);
+            ctx.lineTo(0, 40);
+            ctx.closePath();
+            ctx.fill();
+
+            // 绘制内部圆圈
+            ctx.fillStyle = 'white';
+            ctx.beginPath();
+            ctx.arc(16, 14, 10, 0, 2 * Math.PI);
+            ctx.fill();
+
+            // 绘制车辆图标
+            ctx.fillStyle = carData.color;
+            ctx.font = '12px Arial';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText('🚗', 16, 14);
+
+            return canvas.toDataURL();
+        }
+
+        // 显示车辆信息面板
+        function showCarInfo() {
+            document.getElementById('car-color').style.backgroundColor = carData.color;
+            document.getElementById('car-name').textContent = carData.name;
+            document.getElementById('car-address').textContent = carData.address;
+            document.getElementById('car-time').textContent = carData.time;
+            document.getElementById('car-coords').textContent = `${carData.lat.toFixed(6)}, ${carData.lng.toFixed(6)}`;
+            document.getElementById('car-info').style.display = 'block';
+        }
+
+        // 显示信息窗口（优化版）
+        function showInfoWindow(position, properties) {
+            const infoWindow = new TMap.InfoWindow({
+                map: map,
+                position: position,
+                content: `
+                    <div style="padding: 12px; min-width: 220px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+                        <div style="display: flex; align-items: center; margin-bottom: 8px;">
+                            <div style="width: 12px; height: 12px; border-radius: 50%; background: ${carData.color}; margin-right: 8px;"></div>
+                            <h3 style="margin: 0; font-size: 16px; color: #333;">${properties.title || carData.name}</h3>
+                        </div>
+                        <p style="margin: 6px 0; font-size: 14px; color: #666; line-height: 1.4;">📍 ${properties.address || carData.address}</p>
+                        <p style="margin: 6px 0; font-size: 12px; color: #999;">🕒 ${carData.time}</p>
+                        ${carData.plate ? `<p style="margin: 6px 0; font-size: 12px; color: #999;">🚗 ${carData.plate}</p>` : ''}
+                        <p style="margin: 8px 0 0 0; font-size: 11px; color: #999;">坐标: ${carData.lat.toFixed(6)}, ${carData.lng.toFixed(6)}</p>
+                    </div>
+                `,
+                offset: { x: 0, y: -45 }
+            });
+
+            infoWindow.open();
+        }
+
+        // 地图控制函数
+        function zoomIn() {
+            if (map) {
+                map.setZoom(map.getZoom() + 1);
+            }
+        }
+
+        function zoomOut() {
+            if (map) {
+                map.setZoom(map.getZoom() - 1);
+            }
+        }
+
+        function recenter() {
+            if (map) {
+                map.setCenter(new TMap.LatLng(carData.lat, carData.lng));
+            }
+        }
+
+        // 显示错误
+        function showError() {
+            document.getElementById('loading').style.display = 'none';
+            document.getElementById('error').style.display = 'block';
+        }
+
+        // 页面加载完成后初始化
+        document.addEventListener('DOMContentLoaded', function() {
+            // 延迟初始化，确保API加载完成
+            setTimeout(initMap, 100);
+        });
+
+        // 监听API加载完成
+        window.onTMapLoaded = function() {
+            console.log('腾讯地图API加载完成');
+            if (!map) {
+                initMap();
+            }
+        };
+    </script>
+</body>
+</html>

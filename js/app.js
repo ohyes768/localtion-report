@@ -378,7 +378,7 @@ class VehicleLocationApp {
                             font-size: 14px;
                             margin-right: 10px;
                         ">
-                            🌐 在新窗口中打开
+                            🌐 全屏查看地图
                         </button>
                         <button onclick="navigator.share && navigator.share({
                             title: '${this.currentCar.name} 位置分享',
