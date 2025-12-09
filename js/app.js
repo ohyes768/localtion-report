@@ -215,18 +215,6 @@ class VehicleLocationApp {
             // 等待腾讯地图API加载完成（最多等待5秒）
             await this.waitForTencentMapAPI();
 
-            // 初始化腾讯定位组件（如果可用）
-            if (typeof TMap !== 'undefined') {
-                const tencentLocationEnabled = this.locationManager.enableTencentLocation();
-                if (APP_CONFIG.debug) {
-                    console.log('腾讯定位组件状态:', tencentLocationEnabled ? '✅ 已启用' : '❌ 未启用');
-                }
-            } else {
-                if (APP_CONFIG.debug) {
-                    console.log('🔍 腾讯地图API未加载，将使用浏览器原生定位');
-                }
-            }
-
             // 获取当前位置（优先使用腾讯定位）
             const location = await this.locationManager.getCurrentPosition();
             this.currentLocation = location;
