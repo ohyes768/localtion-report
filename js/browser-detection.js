@@ -13,6 +13,7 @@ class BrowserDetection {
         return {
             isUC: /UCBrowser|UCWEB/.test(ua),
             isMiuiBrowser: /MiuiBrowser|mibrowser/.test(ua),
+            isWechat: /MicroMessenger/.test(ua),
             isChrome: /Chrome/.test(ua) && /Google Inc/.test(vendor),
             isFirefox: /Firefox/.test(ua),
             isSafari: /Safari/.test(ua) && /Apple Computer/.test(vendor),
@@ -25,7 +26,18 @@ class BrowserDetection {
 
     // 根据浏览器选择定位策略
     getLocationStrategy() {
-        const { isUC, isMiuiBrowser, isMobile, isAndroid, isIOS } = this.browserInfo;
+        const { isUC, isMiuiBrowser, isWechat, isMobile, isAndroid, isIOS } = this.browserInfo;
+
+        if (isWechat) {
+            return {
+                name: '微信浏览器',
+                enableHighAccuracy: true,  // 强制高精度
+                timeout: 25000,            // 增加超时时间到25秒
+                maximumAge: 0,             // 不使用缓存位置
+                retries: 3,                // 增加重试次数
+                description: '微信浏览器高精度定位策略，解决定位偏差问题'
+            };
+        }
 
         if (isUC) {
             return {

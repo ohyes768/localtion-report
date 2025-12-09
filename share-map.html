@@ -63,6 +63,26 @@
             background: #E67E00;
         }
 
+        .location-btn {
+            background: #007AFF;
+            color: white;
+        }
+
+        .location-btn:hover {
+            background: #0056D6;
+        }
+
+        .location-btn.locating {
+            background: #FF9500;
+            animation: pulse 1.5s infinite;
+        }
+
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.6; }
+            100% { opacity: 1; }
+        }
+
         /* 车辆信息面板 */
         .car-info-panel {
             position: absolute;
@@ -167,6 +187,7 @@
     <!-- 地图控制按钮 -->
     <div id="map-controls" class="map-controls" style="display: none;">
         <button class="control-btn back-btn" onclick="goBack()">🔙 返回</button>
+        <button class="control-btn location-btn" onclick="getCurrentLocation()">📍 定位</button>
         <button class="control-btn" onclick="zoomIn()">放大</button>
         <button class="control-btn" onclick="zoomOut()">缩小</button>
         <button class="control-btn" onclick="recenter()">重新居中</button>
@@ -460,6 +481,214 @@
             if (map) {
                 map.setCenter(new TMap.LatLng(carData.lat, carData.lng));
             }
+        }
+
+        // 获取当前位置（高精度定位）
+        async function getCurrentLocation() {
+            console.log('📍 开始高精度定位...');
+
+            const locationBtn = document.querySelector('.location-btn');
+            const originalText = locationBtn.textContent;
+
+            // 显示定位中状态
+            locationBtn.classList.add('locating');
+            locationBtn.textContent = '🔄 定位中';
+
+            try {
+                // 检测浏览器类型并设置优化参数
+                const isWechat = /MicroMessenger/.test(navigator.userAgent);
+                const isMobile = /Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+
+                let locationOptions = {
+                    enableHighAccuracy: true,
+                    timeout: 20000,
+                    maximumAge: 0
+                };
+
+                // 微信浏览器特殊优化
+                if (isWechat) {
+                    console.log('🎯 检测到微信浏览器，使用高精度定位策略');
+                    locationOptions = {
+                        enableHighAccuracy: true,
+                        timeout: 25000,      // 增加超时时间
+                        maximumAge: 0,       // 不使用缓存
+                        retries: 3           // 增加重试次数
+                    };
+                }
+
+                // 移动设备优化
+                if (isMobile) {
+                    locationOptions.timeout = Math.max(locationOptions.timeout, 15000);
+                }
+
+                console.log('📐 定位参数:', locationOptions);
+
+                // 执行定位
+                const position = await getCurrentPositionWithRetry(locationOptions, 3);
+
+                // 处理定位结果
+                if (position && position.coords) {
+                    const accuracy = position.coords.accuracy;
+                    const lat = position.coords.latitude;
+                    const lng = position.coords.longitude;
+
+                    console.log(`✅ 定位成功: 精度${accuracy}米, 坐标(${lat.toFixed(6)}, ${lng.toFixed(6)})`);
+
+                    // 精度验证
+                    if (accuracy > 500) {
+                        console.warn('⚠️ 定位精度较低，可能存在偏差');
+                        showLocationToast(`定位精度较低 (${Math.round(accuracy)}m)，建议到开阔区域重试`, 'warning');
+                    } else if (accuracy > 100) {
+                        console.log('📊 定位精度中等');
+                        showLocationToast(`定位成功，精度${Math.round(accuracy)}m`, 'info');
+                    } else {
+                        console.log('🎯 定位精度很高');
+                        showLocationToast(`高精度定位成功，精度${Math.round(accuracy)}m`, 'success');
+                    }
+
+                    // 更新地图中心
+                    if (map) {
+                        map.setCenter(new TMap.LatLng(lat, lng));
+
+                        // 添加当前位置标记
+                        if (window.currentLocationMarker) {
+                            window.currentLocationMarker.setMap(null);
+                        }
+
+                        window.currentLocationMarker = new TMap.MultiMarker({
+                            map: map,
+                            styles: {
+                                'current-location': new TMap.MarkerStyle({
+                                    width: 20,
+                                    height: 20,
+                                    anchor: {x: 10, y: 10},
+                                    src: 'data:image/svg+xml;base64,' + btoa(`
+                                        <svg width="20" height="20" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
+                                            <circle cx="10" cy="10" r="8" fill="#007AFF" fill-opacity="0.3"/>
+                                            <circle cx="10" cy="10" r="4" fill="#007AFF"/>
+                                            <circle cx="10" cy="10" r="2" fill="white"/>
+                                        </svg>
+                                    `)
+                                })
+                            },
+                            geometries: [{
+                                id: 'current-location',
+                                styleId: 'current-location',
+                                position: new TMap.LatLng(lat, lng),
+                                properties: {
+                                    title: '当前位置'
+                                }
+                            }]
+                        });
+
+                        // 调整地图缩放级别
+                        map.setZoom(16);
+                    }
+
+                    // 更新车辆数据（可选）
+                    carData.lat = lat;
+                    carData.lng = lng;
+                    carData.address = '当前位置（精确定位）';
+
+                } else {
+                    throw new Error('定位返回无效数据');
+                }
+
+            } catch (error) {
+                console.error('❌ 定位失败:', error);
+
+                // 根据错误类型显示不同提示
+                if (error.code === 1) { // PERMISSION_DENIED
+                    showLocationToast('定位权限被拒绝，请在浏览器设置中允许定位', 'error');
+                } else if (error.code === 3) { // TIMEOUT
+                    showLocationToast('定位超时，请检查GPS信号或重试', 'error');
+                } else {
+                    showLocationToast('定位失败: ' + error.message, 'error');
+                }
+
+            } finally {
+                // 恢复按钮状态
+                locationBtn.classList.remove('locating');
+                locationBtn.textContent = originalText;
+            }
+        }
+
+        // 带重试的定位功能
+        function getCurrentPositionWithRetry(options, maxRetries = 3) {
+            return new Promise((resolve, reject) => {
+                let attempt = 1;
+
+                function attemptLocation() {
+                    console.log(`🎯 定位尝试 ${attempt}/${maxRetries}`);
+
+                    navigator.geolocation.getCurrentPosition(
+                        (position) => {
+                            console.log(`✅ 定位成功 (尝试 ${attempt})`);
+                            resolve(position);
+                        },
+                        (error) => {
+                            console.warn(`❌ 定位失败 (尝试 ${attempt}):`, error.message);
+
+                            if (attempt < maxRetries) {
+                                attempt++;
+                                // 重试前等待
+                                setTimeout(attemptLocation, 1000 * attempt);
+                            } else {
+                                reject(error);
+                            }
+                        },
+                        {
+                            ...options,
+                            timeout: options.timeout || 20000,
+                            enableHighAccuracy: options.enableHighAccuracy !== false,
+                            maximumAge: options.maximumAge || 0
+                        }
+                    );
+                }
+
+                attemptLocation();
+            });
+        }
+
+        // 显示定位提示消息
+        function showLocationToast(message, type = 'info') {
+            // 创建提示元素
+            const toast = document.createElement('div');
+            toast.style.cssText = `
+                position: fixed;
+                top: 80px;
+                left: 50%;
+                transform: translateX(-50%);
+                background: ${type === 'error' ? '#FF3B30' : type === 'warning' ? '#FF9500' : type === 'success' ? '#34C759' : '#007AFF'};
+                color: white;
+                padding: 12px 20px;
+                border-radius: 8px;
+                font-size: 14px;
+                z-index: 10001;
+                box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+                max-width: 300px;
+                text-align: center;
+                opacity: 0;
+                transition: opacity 0.3s ease;
+            `;
+            toast.textContent = message;
+
+            document.body.appendChild(toast);
+
+            // 显示动画
+            setTimeout(() => {
+                toast.style.opacity = '1';
+            }, 10);
+
+            // 3秒后自动消失
+            setTimeout(() => {
+                toast.style.opacity = '0';
+                setTimeout(() => {
+                    if (toast.parentNode) {
+                        toast.parentNode.removeChild(toast);
+                    }
+                }, 300);
+            }, 3000);
         }
 
         // 显示错误
