@@ -232,11 +232,18 @@ class VehicleLocationApp {
     // 开始定位追踪（集成腾讯位置服务）
     async startLocationTracking() {
         try {
+            // 等待腾讯地图API加载完成（最多等待5秒）
+            await this.waitForTencentMapAPI();
+
             // 初始化腾讯定位组件（如果可用）
             if (typeof TMap !== 'undefined') {
                 const tencentLocationEnabled = this.locationManager.enableTencentLocation();
                 if (APP_CONFIG.debug) {
                     console.log('腾讯定位组件状态:', tencentLocationEnabled ? '✅ 已启用' : '❌ 未启用');
+                }
+            } else {
+                if (APP_CONFIG.debug) {
+                    console.log('🔍 腾讯地图API未加载，将使用浏览器原生定位');
                 }
             }
 
@@ -333,6 +340,49 @@ class VehicleLocationApp {
         } finally {
             this.hideLoadingAnimation();
         }
+    }
+
+    // 等待腾讯地图API加载
+    async waitForTencentMapAPI() {
+        const maxWaitTime = 8000; // 最多等待8秒
+
+        return new Promise((resolve) => {
+            // 如果已经加载完成
+            if (window.TencentMapAPILoaded && typeof TMap !== 'undefined') {
+                if (APP_CONFIG.debug) {
+                    console.log('✅ 腾讯地图API已加载（缓存状态）');
+                }
+                resolve(true);
+                return;
+            }
+
+            // 监听API加载完成事件
+            const handleMapLoaded = () => {
+                window.removeEventListener('tencentMapLoaded', handleMapLoaded);
+                if (APP_CONFIG.debug) {
+                    console.log('✅ 腾讯地图API已加载（事件监听）');
+                }
+                resolve(true);
+            };
+
+            window.addEventListener('tencentMapLoaded', handleMapLoaded);
+
+            // 设置超时检查
+            setTimeout(() => {
+                window.removeEventListener('tencentMapLoaded', handleMapLoaded);
+
+                // 最后检查一次TMap是否可用
+                if (typeof TMap !== 'undefined') {
+                    if (APP_CONFIG.debug) {
+                        console.log('✅ 腾讯地图API检测可用（超时检查）');
+                    }
+                    resolve(true);
+                } else {
+                    console.warn('⏰ 腾讯地图API加载超时，将使用浏览器原生定位');
+                    resolve(false);
+                }
+            }, maxWaitTime);
+        });
     }
 
     // 显示地图页面

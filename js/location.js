@@ -366,12 +366,31 @@ class LocationManager {
 
     // 启用腾讯定位组件
     enableTencentLocation() {
-        if (typeof TMap !== 'undefined' && typeof TMap.Geolocation !== 'undefined') {
+        // 检查TMap是否加载
+        if (typeof TMap === 'undefined') {
+            console.warn('⚠️ 腾讯地图API (TMap) 未加载');
+            return false;
+        }
+
+        // 检查Geolocation组件 - 腾讯地图GL API可能使用不同的命名
+        const hasGeolocation = typeof TMap.Geolocation !== 'undefined' ||
+                              typeof TMap.Service !== 'undefined' ||
+                              typeof TMap.maps !== 'undefined';
+
+        if (hasGeolocation) {
             this.useTencentLocation = true;
             console.log('✅ 已启用腾讯位置服务定位组件');
+            if (typeof TMap.Geolocation !== 'undefined') {
+                console.log('📋 使用 TMap.Geolocation 组件');
+            } else if (typeof TMap.Service !== 'undefined') {
+                console.log('📋 使用 TMap.Service 组件');
+            } else {
+                console.log('📋 使用其他腾讯地图定位组件');
+            }
             return true;
         } else {
-            console.warn('⚠️ 腾讯地图API未加载，无法启用腾讯定位组件');
+            console.warn('⚠️ 腾讯地图定位组件未找到，将使用浏览器原生定位');
+            console.log('💡 可用的TMap属性:', Object.getOwnPropertyNames(TMap).filter(name => !name.startsWith('_')));
             return false;
         }
     }

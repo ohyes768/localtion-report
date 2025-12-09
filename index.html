@@ -10,6 +10,32 @@
     <title>车辆位置查询</title>
     <link rel="stylesheet" href="css/style.css">
     <script charset="utf-8" src="https://map.qq.com/api/gljs?v=1.exp&key=67PBZ-AWOWQ-TTW5A-BTI3M-BNMHH-2YBXZ"></script>
+    <script>
+        // 腾讯地图API加载状态管理
+        window.TencentMapAPILoaded = false;
+        window.onTMapLoaded = function() {
+            console.log('🗺️ 腾讯地图API加载完成');
+            window.TencentMapAPILoaded = true;
+
+            // 触发自定义事件，通知应用API已加载
+            if (typeof window.dispatchEvent === 'function') {
+                const event = new CustomEvent('tencentMapLoaded');
+                window.dispatchEvent(event);
+            }
+        };
+
+        // 备用检查机制
+        setTimeout(function() {
+            if (typeof TMap !== 'undefined' && !window.TencentMapAPILoaded) {
+                console.log('🗺️ 腾讯地图API检测已加载');
+                window.TencentMapAPILoaded = true;
+                if (typeof window.dispatchEvent === 'function') {
+                    const event = new CustomEvent('tencentMapLoaded');
+                    window.dispatchEvent(event);
+                }
+            }
+        }, 1000);
+    </script>
 </head>
 <body>
     <!-- 加载页面 -->
