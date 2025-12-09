@@ -127,10 +127,8 @@ class LocationManager {
                 // 直接使用浏览器定位，但标记为腾讯增强
                 this._attemptBrowserLocationWithStrategy(options, 1)
                     .then(location => {
-                        // 添加腾讯增强标识
-                        location.provider = 'hybrid (browser + tencent)';
-                        location.tencentEnhanced = true;
-                        location.tencentLocationMode = this.tencentLocationMode;
+                        // 使用统一的来源设置函数
+                        this._setLocationSource(location, 'hybrid', '浏览器GPS + 腾讯地图服务');
 
                         if (APP_CONFIG.debug) {
                             console.log('✅ 混合定位成功:', location);
@@ -149,6 +147,10 @@ class LocationManager {
 
                     if (result.status === 0) {
                         const location = this._processTencentPosition(result);
+
+                        // 使用统一的来源设置函数
+                        this._setLocationSource(location, 'tencent', '腾讯位置服务');
+
                         this.currentPosition = location;
                         this.lastPositionTime = Date.now();
 
@@ -228,8 +230,9 @@ class LocationManager {
                 (position) => {
                     const duration = Date.now() - startTime;
                     const location = this._processPosition(position);
-                    location.browserStrategy = this.locationStrategy.name;
-                    location.browserOptimized = true;
+
+                    // 使用统一的来源设置函数
+                    this._setLocationSource(location, 'browser', this.locationStrategy.name);
 
                     this.currentPosition = location;
                     this.lastPositionTime = Date.now();
@@ -256,7 +259,6 @@ class LocationManager {
                     if (errorInfo.shouldUseDefaultLocation) {
                         console.warn(`📍 检测到 ${error.code === error.PERMISSION_DENIED ? '权限被拒绝' : '定位超时'}，使用默认位置（杭州西湖）`);
                         const defaultLocation = this._createDefaultLocation();
-                        defaultLocation.browserStrategy = `${this.locationStrategy.name} + 默认位置`;
                         defaultLocation.failureReason = error.code === error.PERMISSION_DENIED ? '权限被拒绝' : '定位超时';
                         resolve(defaultLocation);
                         return;
@@ -268,7 +270,6 @@ class LocationManager {
                         if (error.code === error.PERMISSION_DENIED) {
                             console.warn(`🚫 权限被拒绝，使用默认位置`);
                             const defaultLocation = this._createDefaultLocation();
-                            defaultLocation.browserStrategy = `${this.locationStrategy.name} + 默认位置`;
                             defaultLocation.failureReason = '权限被拒绝';
                             resolve(defaultLocation);
                             return;
@@ -295,13 +296,11 @@ class LocationManager {
                             console.log(`🔄 浏览器定位失败，尝试腾讯定位备用方案...`);
                             try {
                                 const tencentResult = await this._attemptTencentLocation(options);
-                                tencentResult.browserStrategy = `${this.locationStrategy.name} + 腾讯备用`;
                                 resolve(tencentResult);
                             } catch (tencentError) {
                                 // 使用默认测试位置
                                 console.warn('腾讯定位也失败，使用默认测试位置（杭州西湖）');
                                 const defaultLocation = this._createDefaultLocation();
-                                defaultLocation.browserStrategy = `${this.locationStrategy.name} + 腾讯备用 + 默认位置`;
                                 defaultLocation.failureReason = '所有定位方式失败';
                                 resolve(defaultLocation);
                             }
@@ -309,7 +308,6 @@ class LocationManager {
                             // 最后回退到默认位置
                             console.warn('所有定位方式都失败，使用默认测试位置（杭州西湖）');
                             const defaultLocation = this._createDefaultLocation();
-                            defaultLocation.browserStrategy = `${this.locationStrategy.name} + 默认位置`;
                             defaultLocation.failureReason = '所有定位方式失败';
                             resolve(defaultLocation);
                         }
@@ -350,36 +348,25 @@ class LocationManager {
         // 更新时间戳
         defaultLocation.timestamp = Date.now();
 
-        // 添加浏览器策略信息
-        if (this.locationStrategy) {
-            defaultLocation.browserStrategy = `${this.locationStrategy.name} + 默认位置`;
+        // 使用统一的来源设置函数
+        let reasonText = '定位失败自动回退';
+        if (defaultLocation.failureReason) {
+            reasonText = defaultLocation.failureReason;
         }
+        this._setLocationSource(defaultLocation, 'default', reasonText);
 
-        // 添加默认位置标识
-        defaultLocation.isDefaultLocation = true;
-        defaultLocation.isRealLocation = false;
-
-        // 根据失败原因设置不同的描述
-        if (!defaultLocation.failureReason) {
-            defaultLocation.failureReason = '定位失败自动回退';
-        }
-
-        // 根据失败原因设置不同的显示信息
+        // 根据失败原因设置精度级别描述
         switch (defaultLocation.failureReason) {
             case '权限被拒绝':
-                defaultLocation.provider = '权限被拒绝 (默认位置)';
                 defaultLocation.accuracyLevel = '模拟定位 - 权限被拒绝';
                 break;
             case '定位超时':
-                defaultLocation.provider = '定位超时 (默认位置)';
                 defaultLocation.accuracyLevel = '模拟定位 - 超时回退';
                 break;
             case '所有定位方式失败':
-                defaultLocation.provider = '定位失败 (默认位置)';
                 defaultLocation.accuracyLevel = '模拟定位 - 完全失败';
                 break;
             default:
-                defaultLocation.provider = '自动回退 (默认位置)';
                 defaultLocation.accuracyLevel = '模拟定位 - 自动回退';
         }
 
@@ -499,6 +486,9 @@ class LocationManager {
                     const duration = Date.now() - startTime;
                     const location = this._processPosition(position);
 
+                    // 使用统一的来源设置函数
+                    this._setLocationSource(location, 'browser', '渐进式定位');
+
                     this.currentPosition = location;
                     this.lastPositionTime = Date.now();
 
@@ -531,7 +521,6 @@ class LocationManager {
                     if (errorInfo.shouldUseDefaultLocation) {
                         console.warn(`📍 检测到 ${error.code === error.PERMISSION_DENIED ? '权限被拒绝' : '定位超时'}，使用默认位置（杭州西湖）`);
                         const defaultLocation = this._createDefaultLocation();
-                        defaultLocation.browserStrategy = '渐进式定位 + 默认位置';
                         defaultLocation.failureReason = error.code === error.PERMISSION_DENIED ? '权限被拒绝' : '定位超时';
                         resolve(defaultLocation);
                         return;
@@ -543,7 +532,6 @@ class LocationManager {
                         if (error.code === error.PERMISSION_DENIED) {
                             console.warn(`🚫 权限被拒绝，使用默认位置`);
                             const defaultLocation = this._createDefaultLocation();
-                            defaultLocation.browserStrategy = '渐进式定位 + 默认位置';
                             defaultLocation.failureReason = '权限被拒绝';
                             resolve(defaultLocation);
                             return;
@@ -575,7 +563,6 @@ class LocationManager {
                             // 使用默认测试位置（用于开发和测试）
                             console.warn('所有定位方式都失败，使用默认测试位置（杭州西湖）');
                             const defaultLocation = this._createDefaultLocation();
-                            defaultLocation.browserStrategy = '渐进式定位 + 默认位置';
                             defaultLocation.failureReason = '所有定位方式失败';
                             resolve(defaultLocation);
                         }
@@ -604,6 +591,54 @@ class LocationManager {
 
         // 添加位置质量评分
         location.quality = this._calculateLocationQuality(location);
+
+        return location;
+    }
+
+    // 统一设置定位来源信息
+    _setLocationSource(location, sourceType, additionalInfo = '') {
+        // 统一的来源标识符
+        const sources = {
+            'browser': '浏览器GPS',
+            'tencent': '腾讯定位',
+            'hybrid': '混合定位',
+            'default': '默认位置',
+            'cache': '缓存位置'
+        };
+
+        let sourceText = sources[sourceType] || '未知来源';
+
+        // 添加额外信息
+        if (additionalInfo) {
+            sourceText += ' - ' + additionalInfo;
+        }
+
+        // 设置所有相关字段
+        location.provider = sourceText;
+        location.browserStrategy = this.locationStrategy ? this.locationStrategy.name : '标准定位';
+        location.sourceType = sourceType;
+        location.sourceText = sourceText;
+
+        // 根据来源类型设置特定标识
+        switch (sourceType) {
+            case 'browser':
+                location.browserOptimized = true;
+                location.tencentEnhanced = false;
+                break;
+            case 'tencent':
+                location.tencentEnhanced = true;
+                location.browserOptimized = false;
+                break;
+            case 'hybrid':
+                location.tencentEnhanced = true;
+                location.browserOptimized = true;
+                location.tencentLocationMode = this.tencentLocationMode;
+                break;
+            case 'default':
+                location.isDefaultLocation = true;
+                location.isRealLocation = false;
+                break;
+        }
 
         return location;
     }
