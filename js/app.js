@@ -686,15 +686,23 @@ class VehicleLocationApp {
             // 更新定位来源
             const providerDisplay = document.getElementById('provider-display');
             if (providerDisplay) {
-                let provider = '浏览器定位';
-                if (location.provider === 'tencent') {
-                    provider = '腾讯定位';
-                } else if (location.provider === '默认位置') {
-                    provider = '默认位置';
-                } else if (location.browserStrategy) {
-                    provider = location.browserStrategy;
-                } else if (location.browserOptimized) {
-                    provider = '浏览器优化';
+                // 调试信息
+                if (APP_CONFIG.debug) {
+                    console.log('🎯 更新来源显示 - location对象:', {
+                        sourceText: location.sourceText,
+                        provider: location.provider,
+                        browserStrategy: location.browserStrategy,
+                        sourceType: location.sourceType,
+                        tencentEnhanced: location.tencentEnhanced
+                    });
+                }
+
+                // 优先使用新的sourceText字段，回退到provider字段
+                let provider = location.sourceText || location.provider || '浏览器定位';
+
+                // 调试信息
+                if (APP_CONFIG.debug) {
+                    console.log('🎯 最终显示的provider值:', provider);
                 }
 
                 // 如果是默认位置，添加特殊标识

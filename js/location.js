@@ -619,6 +619,16 @@ class LocationManager {
         location.sourceType = sourceType;
         location.sourceText = sourceText;
 
+        // 调试信息
+        if (APP_CONFIG && APP_CONFIG.debug) {
+            console.log('🏷️ 设置定位来源:', {
+                sourceType: sourceType,
+                sourceText: sourceText,
+                additionalInfo: additionalInfo,
+                browserStrategy: this.locationStrategy ? this.locationStrategy.name : '标准定位'
+            });
+        }
+
         // 根据来源类型设置特定标识
         switch (sourceType) {
             case 'browser':
