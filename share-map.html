@@ -92,19 +92,7 @@
             background: #E6342A;
         }
 
-        .debug-btn {
-            background: #5856D6;
-            color: white;
-        }
-
-        .debug-btn:hover {
-            background: #4A4AE6;
-        }
-
-        .debug-btn.active {
-            background: #FF9500;
-        }
-
+        
         /* 车辆信息面板 */
         .car-info-panel {
             position: absolute;
@@ -221,7 +209,6 @@
         <button class="control-btn back-btn" onclick="goBack()">🔙 返回</button>
         <button class="control-btn location-btn" onclick="getCurrentLocation()">📍 定位</button>
         <button class="control-btn screenshot-btn" onclick="captureAndShareScreenshot()">📸 截图分享</button>
-        <button class="control-btn debug-btn" onclick="toggleCoordinateDebug()">🔍 调试</button>
         <button class="control-btn" onclick="zoomIn()">放大</button>
         <button class="control-btn" onclick="zoomOut()">缩小</button>
         <button class="control-btn" onclick="recenter()">重新居中</button>
@@ -801,100 +788,6 @@
 
                 attemptLocation();
             });
-        }
-
-        // 坐标调试功能
-        let coordinateDebugEnabled = false;
-
-        function toggleCoordinateDebug() {
-            coordinateDebugEnabled = !coordinateDebugEnabled;
-            const debugBtn = document.querySelector('.debug-btn');
-
-            if (coordinateDebugEnabled) {
-                debugBtn.classList.add('active');
-                debugBtn.textContent = '🔍 已开启';
-                showCoordinateDebugInfo();
-                showLocationToast('坐标调试模式已开启，将在控制台显示详细信息', 'info');
-            } else {
-                debugBtn.classList.remove('active');
-                debugBtn.textContent = '🔍 调试';
-                hideCoordinateDebugInfo();
-                showLocationToast('坐标调试模式已关闭', 'info');
-            }
-        }
-
-        function showCoordinateDebugInfo() {
-            if (!coordinateDebugEnabled) return;
-
-            const debugInfo = document.createElement('div');
-            debugInfo.id = 'coordinate-debug-info';
-            debugInfo.style.cssText = `
-                position: fixed;
-                top: 130px;
-                right: 20px;
-                background: rgba(0, 0, 0, 0.8);
-                color: white;
-                padding: 15px;
-                border-radius: 8px;
-                font-size: 12px;
-                z-index: 10000;
-                max-width: 300px;
-                font-family: monospace;
-                line-height: 1.4;
-            `;
-            debugInfo.innerHTML = `
-                <strong>🔍 坐标调试信息</strong><br>
-                浏览器: ${navigator.userAgent.split(' ')[0]}<br>
-                坐标系: WGS-84 → GCJ-02<br>
-                <small>请在控制台查看详细转换日志</small>
-            `;
-
-            document.body.appendChild(debugInfo);
-        }
-
-        function hideCoordinateDebugInfo() {
-            const debugInfo = document.getElementById('coordinate-debug-info');
-            if (debugInfo) {
-                debugInfo.remove();
-            }
-        }
-
-        function logCoordinateDebug(wgsLat, wgsLng, gcjLat, gcjLng, offsetDistance) {
-            if (!coordinateDebugEnabled) return;
-
-            console.group('🔍 坐标转换调试信息');
-            console.log('浏览器类型:', navigator.userAgent);
-            console.log('原始坐标 (WGS-84):', {
-                latitude: wgsLat.toFixed(6),
-                longitude: wgsLng.toFixed(6)
-            });
-            console.log('转换坐标 (GCJ-02):', {
-                latitude: gcjLat.toFixed(6),
-                longitude: gcjLng.toFixed(6)
-            });
-            console.log('偏移距离:', offsetDistance.toFixed(1) + '米');
-
-            // 在高德地图上验证（高德使用GCJ-02）
-            const gaodeUrl = `https://uri.amap.com/marker?position=${gcjLng.toFixed(6)},${gcjLat.toFixed(6)}&name=转换后位置`;
-            console.log('高德地图验证链接:', gaodeUrl);
-
-            // 在Google地图上验证原始坐标（Google使用WGS-84）
-            const googleUrl = `https://www.google.com/maps?q=${wgsLat.toFixed(6)},${wgsLng.toFixed(6)}`;
-            console.log('Google地图验证链接:', googleUrl);
-
-            console.groupEnd();
-
-            // 更新调试信息面板
-            const debugInfo = document.getElementById('coordinate-debug-info');
-            if (debugInfo) {
-                debugInfo.innerHTML = `
-                    <strong>🔍 坐标转换调试</strong><br>
-                    WGS-84: ${wgsLat.toFixed(4)}, ${wgsLng.toFixed(4)}<br>
-                    GCJ-02: ${gcjLat.toFixed(4)}, ${gcjLng.toFixed(4)}<br>
-                    偏移: ${offsetDistance.toFixed(0)}m<br>
-                    <small>详情请查看控制台</small>
-                `;
-            }
         }
 
         // 显示定位提示消息
