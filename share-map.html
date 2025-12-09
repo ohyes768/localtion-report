@@ -1520,7 +1520,7 @@
                 showLocationToast('正在生成截图...', 'info');
 
                 // 生成截图
-                const screenshotDataUrl = await generateSmartScreenshot();
+                const screenshotDataUrl = await captureMap();
 
                 if (screenshotDataUrl) {
                     // 显示分享选项
