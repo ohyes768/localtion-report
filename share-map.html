@@ -647,24 +647,30 @@
 
                         if (isWebGL) {
                             console.log('🔄 检测到WebGL渲染，尝试WebGL像素读取...');
-                            // 尝试WebGL像素读取方案
-                            const webglCanvas = captureWebGLCanvas(mapCanvas);
-                            if (webglCanvas) {
-                                console.log('✅ WebGL像素读取成功');
+                            // 尝试WebGL像素读取方案（现在是异步的）
+                            captureWebGLCanvas(mapCanvas).then(webglCanvas => {
+                                if (webglCanvas) {
+                                    console.log('✅ WebGL像素读取成功');
 
-                                // 恢复控制按钮显示
-                                controls.style.display = originalControlsDisplay;
-                                carInfo.style.display = originalCarInfoDisplay;
+                                    // 恢复控制按钮显示
+                                    controls.style.display = originalControlsDisplay;
+                                    carInfo.style.display = originalCarInfoDisplay;
 
-                                // 添加车辆信息水印
-                                addWatermark(webglCanvas);
-                                resolve(webglCanvas);
-                            } else {
-                                console.log('⚠️ WebGL像素读取失败，使用备用方案...');
+                                    // 添加车辆信息水印
+                                    addWatermark(webglCanvas);
+                                    resolve(webglCanvas);
+                                } else {
+                                    console.log('⚠️ WebGL像素读取失败，使用备用方案...');
+                                    controls.style.display = originalControlsDisplay;
+                                    carInfo.style.display = originalCarInfoDisplay;
+                                    fallbackScreenshot().then(resolve).catch(reject);
+                                }
+                            }).catch(error => {
+                                console.error('❌ WebGL截图过程出错:', error);
                                 controls.style.display = originalControlsDisplay;
                                 carInfo.style.display = originalCarInfoDisplay;
                                 fallbackScreenshot().then(resolve).catch(reject);
-                            }
+                            });
                         } else {
                             // 非WebGL，尝试使用html2canvas
                             if (window.html2canvas) {
@@ -722,7 +728,7 @@
         }
 
         // WebGL像素读取截图函数
-        function captureWebGLCanvas(canvas) {
+        async function captureWebGLCanvas(canvas) {
             console.log('🎯 开始WebGL像素读取...');
 
             try {
