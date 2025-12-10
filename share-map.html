@@ -1478,15 +1478,6 @@
                         cursor: pointer;
                         font-size: 14px;
                     ">📋 复制图片</button>
-                    <button onclick="shareScreenshot('${imageDataUrl}')" style="
-                        background: #FF9500;
-                        color: white;
-                        border: none;
-                        padding: 10px 20px;
-                        border-radius: 6px;
-                        cursor: pointer;
-                        font-size: 14px;
-                    ">📤 分享</button>
                     <button onclick="this.closest('div').parentElement.remove()" style="
                         background: #8E8E93;
                         color: white;
@@ -1596,47 +1587,7 @@
             }
         }
 
-        // 系统分享截图
-        async function shareScreenshot(dataUrl) {
-            try {
-                // 类型检查和转换
-                let finalDataUrl = dataUrl;
-
-                // 如果是 canvas 对象，转换为 dataUrl
-                if (typeof dataUrl === 'object' && dataUrl.toDataURL) {
-                    finalDataUrl = dataUrl.toDataURL();
-                }
-
-                if (!finalDataUrl || typeof finalDataUrl !== 'string') {
-                    showLocationToast('截图数据格式错误', 'error');
-                    return;
-                }
-
-                // 转换为Blob
-                const response = await fetch(finalDataUrl);
-                const blob = await response.blob();
-                const file = new File([blob], '车辆位置截图.png', { type: 'image/png' });
-
-                if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
-                    await navigator.share({
-                        title: `${carData.name} 位置分享`,
-                        text: `查看 ${carData.name} (${carData.plate}) 的实时位置`,
-                        files: [file]
-                    });
-
-                    showLocationToast('分享成功', 'success');
-                } else {
-                    // 不支持文件分享，使用降级方案
-                    copyScreenshotToClipboard(finalDataUrl);
-                }
-            } catch (error) {
-                if (error.name !== 'AbortError') {
-                    console.error('分享失败:', error);
-                    showLocationToast('分享失败: ' + error.message, 'error');
-                }
-            }
-        }
-
+        
         // 页面加载时预加载html2canvas
         document.addEventListener('DOMContentLoaded', function() {
             loadHtml2Canvas().catch(() => {
