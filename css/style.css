@@ -417,34 +417,41 @@ body {
 /* 手机端适配 */
 @media (max-width: 480px) {
     .coordinate-label {
-        font-size: 13px;
-        min-width: 70px;
+        font-size: 12px;
+        min-width: 65px;
     }
 
     .coordinate-value {
-        font-size: 11px;
-        min-width: 100px;
-        max-width: 140px;
-        padding: 5px 8px;
+        font-size: 10px;
+        min-width: 80px;
+        max-width: 100px;
+        padding: 3px 6px;
     }
 
     .copy-btn {
-        padding: 6px 8px;
-        min-width: 28px;
-        height: 28px;
-        font-size: 11px;
+        padding: 3px 5px;
+        min-width: 24px;
+        height: 24px;
+        font-size: 10px;
     }
 
     .copy-btn .icon {
-        font-size: 12px;
+        font-size: 10px;
     }
 
     .coordinate-details {
-        gap: 6px;
+        gap: 4px;
+        margin-top: 3px;
     }
 
     .detail-item {
-        font-size: 11px;
+        font-size: 10px;
+        padding: 3px 6px;
+        border-radius: 12px;
+    }
+
+    .detail-label {
+        margin-right: 2px;
     }
 
     #map-container {
@@ -457,7 +464,7 @@ body {
     }
 
     .coordinates-container {
-        padding: 10px;
+        padding: 8px;
     }
 
     .coordinates-info {
@@ -486,59 +493,60 @@ body {
 }
 
 .coordinates-container {
-    padding: 12px;
+    padding: 10px;
 }
 
 .coordinate-item {
     display: flex;
     align-items: center;
-    margin-bottom: 10px;
+    margin-bottom: 8px;
     gap: 6px;
     flex-wrap: nowrap; /* 防止换行 */
     min-width: 0; /* 确保flex子元素可以收缩 */
+    justify-content: space-between; /* 均匀分布元素 */
 }
 
 .coordinate-label {
     font-weight: 600;
     color: #333;
-    font-size: 14px;
-    min-width: 80px;
+    font-size: 13px;
+    min-width: 60px;
     flex-shrink: 0;
 }
 
 .coordinate-value {
     background: white;
-    padding: 6px 10px;
-    border-radius: 6px;
+    padding: 4px 6px;
+    border-radius: 4px;
     font-family: 'Monaco', 'Menlo', 'Courier New', monospace;
-    font-size: 12px;
+    font-size: 11px;
     color: #0066cc;
     font-weight: 500;
     border: 1px solid #d0d7ff;
     flex: 1;
-    min-width: 120px;
-    max-width: 180px; /* 限制最大宽度，防止过长 */
+    min-width: 80px;
+    max-width: 120px; /* 进一步减少最大宽度 */
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
 .copy-btn {
     background: #007AFF;
     color: white;
     border: none;
-    padding: 8px 10px;
-    border-radius: 6px;
+    padding: 4px 6px;
+    border-radius: 4px;
     cursor: pointer;
-    font-size: 12px;
+    font-size: 11px;
     transition: all 0.2s ease;
     display: flex;
     align-items: center;
     justify-content: center;
-    min-width: 32px;
-    height: 32px;
-    box-shadow: 0 2px 6px rgba(0, 122, 255, 0.3);
+    min-width: 28px;
+    height: 28px;
+    box-shadow: 0 1px 4px rgba(0, 122, 255, 0.3);
     flex-shrink: 0;
 }
 
@@ -559,24 +567,24 @@ body {
 .coordinate-details {
     display: flex;
     flex-wrap: wrap;
-    gap: 8px;
-    margin-top: 6px;
+    gap: 6px;
+    margin-top: 4px;
 }
 
 .detail-item {
     display: flex;
     align-items: center;
     background: rgba(255, 255, 255, 0.7);
-    padding: 6px 10px;
-    border-radius: 20px;
-    font-size: 12px;
+    padding: 4px 8px;
+    border-radius: 15px;
+    font-size: 11px;
     border: 1px solid rgba(0, 122, 255, 0.1);
 }
 
 .detail-label {
     font-weight: 500;
     color: #666;
-    margin-right: 4px;
+    margin-right: 3px;
 }
 
 .detail-value {
