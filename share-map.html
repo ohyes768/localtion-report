@@ -703,9 +703,6 @@
                     console.log(`🗺️ 转换后坐标 (GCJ-02): 坐标(${gcjLat.toFixed(6)}, ${gcjLng.toFixed(6)})`);
                     console.log(`📏 坐标偏移距离: ${offsetDistance.toFixed(1)}米`);
 
-                    // 调试日志
-                    logCoordinateDebug(wgsLat, wgsLng, gcjLat, gcjLng, offsetDistance);
-
                     // 精度验证
                     if (accuracy > 500) {
                         console.warn('⚠️ 定位精度较低，可能存在偏差');
