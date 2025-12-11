@@ -87,6 +87,9 @@ body {
 /* 地图页面样式 */
 #map-page {
     background: #fff;
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
 }
 
 .map-header {
@@ -94,11 +97,15 @@ body {
     padding: 15px;
     box-shadow: 0 2px 4px rgba(0,0,0,0.1);
     z-index: 100;
+    flex-shrink: 0; /* 防止头部被压缩 */
+    max-height: 40vh; /* 限制头部最大高度，确保为地图和按钮留出空间 */
+    overflow-y: auto; /* 当内容过多时允许滚动 */
 }
 
 .map-header h2 {
     font-size: 20px;
     margin-bottom: 5px;
+    flex-shrink: 0;
 }
 
 .map-header p {
@@ -120,8 +127,9 @@ body {
 #map-container {
     flex: 1;
     width: 100%;
-    min-height: 280px; /* 减少最小高度 */
-    max-height: 45vh; /* 进一步限制地图最大高度，确保底部按钮可见 */
+    min-height: 200px; /* 最小高度 */
+    flex-shrink: 1; /* 允许地图收缩 */
+    overflow: hidden;
 }
 
 .action-buttons {
@@ -133,6 +141,8 @@ body {
     position: relative; /* 确保按钮在最上层 */
     z-index: 10;
     flex-shrink: 0; /* 防止按钮被压缩 */
+    min-height: 80px; /* 确保按钮区域有最小高度 */
+    border-top: 1px solid #e5e5e5; /* 添加边框增强视觉分离 */
 }
 
 /* 按钮样式 */
@@ -383,18 +393,43 @@ body {
         font-size: 18px;
     }
 
+    .map-header {
+        max-height: 35vh; /* 在手机上进一步限制头部高度 */
+        padding: 10px 15px; /* 减少内边距 */
+    }
+
+    #map-container {
+        min-height: 150px; /* 手机上减少地图最小高度 */
+    }
+
     .btn {
-        padding: 16px;
-        font-size: 18px;
+        padding: 14px 20px; /* 稍微减少内边距，但保持可点击性 */
+        font-size: 16px; /* 减小字体大小 */
+        min-height: 48px; /* 确保最小触摸目标尺寸 */
     }
 
     .action-buttons {
-        flex-direction: column;
-        gap: 10px;
+        padding: 10px 15px; /* 减少内边距 */
+        gap: 8px;
+        min-height: 70px; /* 手机上稍微减小最小高度 */
+        padding-bottom: max(10px, env(safe-area-inset-bottom)); /* 适配刘海屏 */
     }
 
     .share-content {
         padding: 15px;
+    }
+
+    /* 经纬度信息区域在手机上更紧凑 */
+    .coordinates-info {
+        margin-bottom: 4px;
+    }
+
+    .coordinates-container {
+        padding: 8px 10px;
+    }
+
+    .coordinate-details {
+        margin-top: 2px;
     }
 
     .modal-content {
