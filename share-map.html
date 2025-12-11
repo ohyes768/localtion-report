@@ -322,30 +322,31 @@
         // 从URL参数获取车辆信息
         function getUrlParams() {
             const params = new URLSearchParams(window.location.search);
+            const carId = params.get('car');
             const address = params.get('address');
 
+            // 车辆配置映射
+            const vehicleConfig = {
+                'car001': { logo: 'assets/images/icons/lexus_logo.png', brand: 'lexus' },
+                'car002': { logo: 'assets/images/icons/leapmotor_logo.png', brand: 'leapmotor' },
+                'car003': { logo: 'assets/images/icons/audi_logo.png', brand: 'audi' },
+                'car004': { logo: 'assets/images/icons/ximi_logo.png', brand: 'xiaomi' }
+            };
+
+            const config = vehicleConfig[carId] || { logo: '', brand: 'unknown' };
+
             // 过滤掉无效的地址值
-            if (!address || address === '位置解析中...' || address === '地址获取失败') {
-                return {
-                    lat: parseFloat(params.get('lat')) || 30.204763,
-                    lng: parseFloat(params.get('lng')) || 120.204781,
-                    name: params.get('name') || '车辆位置',
-                    plate: params.get('plate') || '',
-                    address: '正在获取详细地址...',  // 显示更有意义的提示
-                    color: params.get('color') || '#007AFF',
-                    time: params.get('time') || new Date().toLocaleString('zh-CN'),
-                    accuracy: params.get('accuracy') || '未知',
-                    provider: params.get('provider') || 'GPS定位'
-                };
-            }
+            const isInvalidAddress = !address || address === '位置解析中...' || address === '地址获取失败';
 
             return {
                 lat: parseFloat(params.get('lat')) || 30.204763,
                 lng: parseFloat(params.get('lng')) || 120.204781,
                 name: params.get('name') || '车辆位置',
                 plate: params.get('plate') || '',
-                address: address,
+                address: isInvalidAddress ? '正在获取详细地址...' : address,
                 color: params.get('color') || '#007AFF',
+                logo: config.logo,
+                brand: config.brand,
                 time: params.get('time') || new Date().toLocaleString('zh-CN'),
                 accuracy: params.get('accuracy') || '未知',
                 provider: params.get('provider') || 'GPS定位'
@@ -578,13 +579,24 @@
             if (!map || !markerDiv) return;
 
             try {
-                // 将地理坐标转换为屏幕坐标
-                const point = map.latLngToContainerPoint(latLng);
-                markerDiv.style.left = point.x + 'px';
-                markerDiv.style.top = point.y + 'px';
+                // 使用腾讯地图GL版本的坐标转换方法
+                const pixel = map.fromLatLngToContainerPixel ?
+                    map.fromLatLngToContainerPixel(latLng) :
+                    { x: 0, y: 0 }; // 默认居中
+
+                markerDiv.style.left = pixel.x + 'px';
+                markerDiv.style.top = pixel.y + 'px';
                 markerDiv.style.transform = 'translate(-50%, -50%)';
             } catch (error) {
                 console.warn('更新标记位置失败:', error);
+                // 备用方案：使用窗口坐标
+                const mapContainer = document.getElementById('map-container');
+                if (mapContainer) {
+                    const rect = mapContainer.getBoundingClientRect();
+                    markerDiv.style.left = (rect.width / 2) + 'px';
+                    markerDiv.style.top = (rect.height / 2) + 'px';
+                    markerDiv.style.transform = 'translate(-50%, -50%)';
+                }
             }
         }
 
