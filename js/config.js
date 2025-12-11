@@ -30,7 +30,7 @@ const VEHICLE_CONFIG = {
         plate: '浙AE19779',
         color: '#8B4789',  // 紫色 - 小米
         brand: 'xiaomi',
-        logo: 'assets/images/icons/ximi_logo.png'
+        logo: 'assets/images/icons/xiaomi_logo.png'
     }
 };
 

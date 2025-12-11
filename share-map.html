@@ -442,7 +442,7 @@
                 }
 
                 // 添加标记点
-                await addMarker();
+                addMarker();
 
                 // 显示车辆信息
                 showCarInfo();
@@ -469,42 +469,45 @@
         }
 
         // 添加标记点（使用官方推荐的MarkerStyle）
-        async function addMarker() {
-            try {
-                // 创建标记图标
-                const markerIcon = await createMarkerIcon();
+        function addMarker() {
+            createMarkerIcon().then(markerIcon => {
+                try {
+                    // 使用官方推荐的MarkerStyle构造函数
+                    marker = new TMap.MultiMarker({
+                        map: map,
+                        styles: {
+                            'car-marker': new TMap.MarkerStyle({
+                                width: 40,
+                                height: 50,
+                                anchor: {x: 20, y: 50},
+                                src: markerIcon
+                            })
+                        },
+                        geometries: [{
+                            id: 'car',
+                            styleId: 'car-marker',
+                            position: new TMap.LatLng(carData.lat, carData.lng),
+                            properties: {
+                                title: carData.name,
+                                address: carData.address
+                            }
+                        }]
+                    });
 
-                // 使用官方推荐的MarkerStyle构造函数
-                marker = new TMap.MultiMarker({
-                    map: map,
-                    styles: {
-                        'car-marker': new TMap.MarkerStyle({
-                            width: 40,
-                            height: 50,
-                            anchor: {x: 20, y: 50},
-                            src: markerIcon
-                        })
-                    },
-                    geometries: [{
-                        id: 'car',
-                        styleId: 'car-marker',
-                        position: new TMap.LatLng(carData.lat, carData.lng),
-                        properties: {
-                            title: carData.name,
-                            address: carData.address
-                        }
-                    }]
-                });
+                    // 点击标记显示信息窗口
+                    marker.on('click', (evt) => {
+                        const position = evt.geometry.position;
+                        const properties = evt.geometry.properties;
+                        showInfoWindow(position, properties);
+                    });
 
-                // 点击标记显示信息窗口
-                marker.on('click', (evt) => {
-                    const position = evt.geometry.position;
-                    const properties = evt.geometry.properties;
-                    showInfoWindow(position, properties);
-                });
-            } catch (error) {
-                console.error('添加标记失败:', error);
-            }
+                    console.log('✅ 标记添加成功');
+                } catch (error) {
+                    console.error('添加标记失败:', error);
+                }
+            }).catch(error => {
+                console.error('创建标记图标失败:', error);
+            });
         }
 
         // 创建标记图标（优化尺寸）
