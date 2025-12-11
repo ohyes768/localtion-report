@@ -3,7 +3,7 @@ const VEHICLE_CONFIG = {
     car001: {
         id: 'car001',
         name: '雷克萨斯LS200',
-        plate: '浙A5W717',
+        plate: '浙***717',
         color: '#808080',  // 灰色 - 雷克萨斯
         brand: 'lexus',
         logo: 'assets/images/icons/lexus_logo.png'
@@ -11,7 +11,7 @@ const VEHICLE_CONFIG = {
     car002: {
         id: 'car002',
         name: '零跑T03',
-        plate: '浙AA28508',
+        plate: '浙***8508',
         color: '#F0F0F0',  // 浅灰色 - 零跑（白色背景需要边框）
         brand: 'leapmotor',
         logo: 'assets/images/icons/leapmotor_logo.png'
@@ -19,7 +19,7 @@ const VEHICLE_CONFIG = {
     car003: {
         id: 'car003',
         name: '奥迪Q5',
-        plate: '浙ALQ598',
+        plate: '浙***598',
         color: '#000000',  // 黑色 - 奥迪
         brand: 'audi',
         logo: 'assets/images/icons/audi_logo.png'
@@ -27,7 +27,7 @@ const VEHICLE_CONFIG = {
     car004: {
         id: 'car004',
         name: '小米SU7',
-        plate: '浙AE19779',
+        plate: '浙***9779',
         color: '#8B4789',  // 紫色 - 小米
         brand: 'xiaomi',
         logo: 'assets/images/icons/xiaomi_logo.png'
