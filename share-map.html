@@ -442,7 +442,7 @@
                 }
 
                 // 添加标记点
-                addMarker();
+                await addMarker();
 
                 // 显示车辆信息
                 showCarInfo();
@@ -469,68 +469,121 @@
         }
 
         // 添加标记点（使用官方推荐的MarkerStyle）
-        function addMarker() {
-            // 使用官方推荐的MarkerStyle构造函数
-            marker = new TMap.MultiMarker({
-                map: map,
-                styles: {
-                    'car-marker': new TMap.MarkerStyle({
-                        width: 32,
-                        height: 40,
-                        anchor: {x: 16, y: 40},
-                        src: createMarkerIcon()
-                    })
-                },
-                geometries: [{
-                    id: 'car',
-                    styleId: 'car-marker',
-                    position: new TMap.LatLng(carData.lat, carData.lng),
-                    properties: {
-                        title: carData.name,
-                        address: carData.address
-                    }
-                }]
-            });
+        async function addMarker() {
+            try {
+                // 创建标记图标
+                const markerIcon = await createMarkerIcon();
 
-            // 点击标记显示信息窗口
-            marker.on('click', (evt) => {
-                const position = evt.geometry.position;
-                const properties = evt.geometry.properties;
-                showInfoWindow(position, properties);
-            });
+                // 使用官方推荐的MarkerStyle构造函数
+                marker = new TMap.MultiMarker({
+                    map: map,
+                    styles: {
+                        'car-marker': new TMap.MarkerStyle({
+                            width: 40,
+                            height: 50,
+                            anchor: {x: 20, y: 50},
+                            src: markerIcon
+                        })
+                    },
+                    geometries: [{
+                        id: 'car',
+                        styleId: 'car-marker',
+                        position: new TMap.LatLng(carData.lat, carData.lng),
+                        properties: {
+                            title: carData.name,
+                            address: carData.address
+                        }
+                    }]
+                });
+
+                // 点击标记显示信息窗口
+                marker.on('click', (evt) => {
+                    const position = evt.geometry.position;
+                    const properties = evt.geometry.properties;
+                    showInfoWindow(position, properties);
+                });
+            } catch (error) {
+                console.error('添加标记失败:', error);
+            }
         }
 
         // 创建标记图标（优化尺寸）
-        function createMarkerIcon() {
-            // 创建一个优化的标记图标（32x40）
-            const canvas = document.createElement('canvas');
-            canvas.width = 32;
-            canvas.height = 40;
-            const ctx = canvas.getContext('2d');
+        async function createMarkerIcon() {
+            try {
+                // 加载品牌logo
+                const logoImg = await new Promise((resolve, reject) => {
+                    const img = new Image();
+                    img.onload = () => resolve(img);
+                    img.onerror = () => {
+                        // 如果logo加载失败，创建一个默认图标
+                        console.warn('Logo加载失败，使用默认图标');
+                        const canvas = document.createElement('canvas');
+                        canvas.width = 20;
+                        canvas.height = 20;
+                        const ctx = canvas.getContext('2d');
+                        ctx.fillStyle = carData.color;
+                        ctx.font = 'bold 12px Arial';
+                        ctx.textAlign = 'center';
+                        ctx.textBaseline = 'middle';
+                        ctx.fillText(carData.name.substring(0, 1), 10, 10);
+                        const defaultImg = new Image();
+                        defaultImg.onload = () => resolve(defaultImg);
+                        defaultImg.src = canvas.toDataURL();
+                    };
+                    img.src = carData.logo;
+                });
 
-            // 绘制标记形状
-            ctx.fillStyle = carData.color;
-            ctx.beginPath();
-            ctx.moveTo(16, 0);
-            ctx.lineTo(32, 40);
-            ctx.lineTo(0, 40);
-            ctx.closePath();
-            ctx.fill();
+                // 创建标记图标（40x50）
+                const canvas = document.createElement('canvas');
+                canvas.width = 40;
+                canvas.height = 50;
+                const ctx = canvas.getContext('2d');
 
-            // 绘制内部圆圈
-            ctx.fillStyle = 'white';
-            ctx.beginPath();
-            ctx.arc(16, 14, 10, 0, 2 * Math.PI);
-            ctx.fill();
+                // 绘制标记形状
+                ctx.fillStyle = carData.color;
+                ctx.beginPath();
+                ctx.moveTo(20, 0);
+                ctx.lineTo(40, 50);
+                ctx.lineTo(0, 50);
+                ctx.closePath();
+                ctx.fill();
 
-            // 绘制车辆图标
-            ctx.fillStyle = carData.color;
-            ctx.font = '12px Arial';
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'middle';
-            ctx.fillText('🚗', 16, 14);
+                // 绘制内部圆圈背景
+                ctx.fillStyle = 'white';
+                ctx.beginPath();
+                ctx.arc(20, 18, 12, 0, 2 * Math.PI);
+                ctx.fill();
 
-            return canvas.toDataURL();
+                // 绘制品牌logo
+                ctx.save();
+                ctx.beginPath();
+                ctx.arc(20, 18, 10, 0, 2 * Math.PI);
+                ctx.clip();
+
+                // 计算logo尺寸和位置
+                const logoSize = 16;
+                const x = 20 - logoSize / 2;
+                const y = 18 - logoSize / 2;
+
+                // 绘制logo
+                ctx.drawImage(logoImg, x, y, logoSize, logoSize);
+                ctx.restore();
+
+                return canvas.toDataURL();
+            } catch (error) {
+                console.error('创建标记图标失败:', error);
+                // 返回一个简单的默认图标
+                const canvas = document.createElement('canvas');
+                canvas.width = 40;
+                canvas.height = 50;
+                const ctx = canvas.getContext('2d');
+                ctx.fillStyle = carData.color;
+                ctx.font = 'bold 16px Arial';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(carData.name.substring(0, 1), 20, 25);
+                return canvas.toDataURL();
+            }
         }
 
         // 显示车辆信息面板
@@ -589,14 +642,14 @@
                 map: map,
                 position: position,
                 content: `
-                    <div style="padding: 12px; min-width: 220px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+                    <div style="padding: 12px; min-width: 240px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
                         <div style="display: flex; align-items: center; margin-bottom: 8px;">
-                            <div style="width: 12px; height: 12px; border-radius: 50%; background: ${carData.color}; margin-right: 8px;"></div>
+                            <img src="${carData.logo}" alt="${carData.brand}" style="width: 20px; height: 20px; margin-right: 8px; object-fit: contain;">
                             <h3 style="margin: 0; font-size: 16px; color: #333;">${properties.title || carData.name}</h3>
                         </div>
                         <p style="margin: 6px 0; font-size: 14px; color: #666; line-height: 1.4;">📍 ${properties.address || carData.address}</p>
                         <p style="margin: 6px 0; font-size: 12px; color: #999;">🕒 ${carData.time}</p>
-                        ${carData.plate ? `<p style="margin: 6px 0; font-size: 12px; color: #999;">🚗 ${carData.plate}</p>` : ''}
+                        ${carData.plate ? `<p style="margin: 6px 0; font-size: 12px; color: #999;">车牌: ${carData.plate}</p>` : ''}
                         <p style="margin: 8px 0 0 0; font-size: 11px; color: #999;">坐标: ${carData.lat.toFixed(6)}, ${carData.lng.toFixed(6)}</p>
                     </div>
                 `,

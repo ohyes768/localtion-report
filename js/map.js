@@ -205,7 +205,9 @@ class MapManager {
 
         // 添加车辆图标和名称
         markerDiv.innerHTML = `
-            <div style="font-size: 28px; margin-bottom: 2px;">🚗</div>
+            <div style="width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; margin-bottom: 2px;">
+                <img src="${carInfo.logo}" alt="${carInfo.brand}" style="width: 100%; height: 100%; object-fit: contain; filter: brightness(0) invert(1);">
+            </div>
             <div style="font-size: 10px; font-weight: bold; text-shadow: 1px 1px 2px rgba(0,0,0,0.5);">
                 ${carInfo.name.substring(0, 2)}
             </div>
@@ -273,8 +275,9 @@ class MapManager {
             min-width: 200px;
         `;
         infoDiv.innerHTML = `
-            <h3 style="margin: 0 0 10px 0; color: #333; font-size: 16px;">
-                🚗 ${carInfo.name}
+            <h3 style="margin: 0 0 10px 0; color: #333; font-size: 16px; display: flex; align-items: center; gap: 8px;">
+                <img src="${carInfo.logo}" alt="${carInfo.brand}" style="width: 24px; height: 24px; object-fit: contain;">
+                ${carInfo.name}
             </h3>
             <p style="margin: 5px 0; color: #666; font-size: 14px;">
                 ${carInfo.plate}
@@ -302,7 +305,9 @@ class MapManager {
     createMarkerContent(carInfo) {
         return `
             <div class="custom-marker" style="background-color: ${carInfo.color}">
-                <div class="marker-icon">🚗</div>
+                <div class="marker-icon">
+                    <img src="${carInfo.logo}" alt="${carInfo.brand}" style="width: 20px; height: 20px; object-fit: contain; filter: brightness(0) invert(1);">
+                </div>
                 <div class="marker-label">${carInfo.name}</div>
             </div>
         `;

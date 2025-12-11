@@ -4,25 +4,33 @@ const VEHICLE_CONFIG = {
         id: 'car001',
         name: '雷克萨斯LS200',
         plate: '浙A5W717',
-        color: '#FF6B6B'
+        color: '#FF6B6B',
+        brand: 'lexus',
+        logo: 'assets/images/icons/lexus_logo.png'
     },
     car002: {
         id: 'car002',
         name: '零跑T03',
         plate: '浙AA28508',
-        color: '#4ECDC4'
+        color: '#4ECDC4',
+        brand: 'leapmotor',
+        logo: 'assets/images/icons/leapmotor_logo.png'
     },
     car003: {
         id: 'car003',
         name: '奥迪Q5',
         plate: '浙ALQ598',
-        color: '#45B7D1'
+        color: '#45B7D1',
+        brand: 'audi',
+        logo: 'assets/images/icons/audi_logo.png'
     },
     car004: {
         id: 'car004',
         name: '小米SU7',
         plate: '浙AE19779',
-        color: '#96CEB4'
+        color: '#96CEB4',
+        brand: 'xiaomi',
+        logo: 'assets/images/icons/ximi_logo.png'
     }
 };
 
