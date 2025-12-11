@@ -322,12 +322,29 @@
         // 从URL参数获取车辆信息
         function getUrlParams() {
             const params = new URLSearchParams(window.location.search);
+            const address = params.get('address');
+
+            // 过滤掉无效的地址值
+            if (!address || address === '位置解析中...' || address === '地址获取失败') {
+                return {
+                    lat: parseFloat(params.get('lat')) || 30.204763,
+                    lng: parseFloat(params.get('lng')) || 120.204781,
+                    name: params.get('name') || '车辆位置',
+                    plate: params.get('plate') || '',
+                    address: '正在获取详细地址...',  // 显示更有意义的提示
+                    color: params.get('color') || '#007AFF',
+                    time: params.get('time') || new Date().toLocaleString('zh-CN'),
+                    accuracy: params.get('accuracy') || '未知',
+                    provider: params.get('provider') || 'GPS定位'
+                };
+            }
+
             return {
                 lat: parseFloat(params.get('lat')) || 30.204763,
                 lng: parseFloat(params.get('lng')) || 120.204781,
                 name: params.get('name') || '车辆位置',
                 plate: params.get('plate') || '',
-                address: params.get('address') || '位置信息',
+                address: address,
                 color: params.get('color') || '#007AFF',
                 time: params.get('time') || new Date().toLocaleString('zh-CN'),
                 accuracy: params.get('accuracy') || '未知',
@@ -520,12 +537,50 @@
         function showCarInfo() {
             document.getElementById('car-color').style.backgroundColor = carData.color;
             document.getElementById('car-name').textContent = carData.name;
-            document.getElementById('car-address').textContent = carData.address;
+
+            // 如果地址是占位符文本，尝试解析真实地址
+            const carAddressElement = document.getElementById('car-address');
+            carAddressElement.textContent = carData.address;
+
+            // 如果地址未解析，尝试逆地理编码
+            if (carData.address === '正在获取详细地址...' || carData.address === '位置信息') {
+                carAddressElement.textContent = '地址解析中...';
+                resolveAddressFromCoords();
+            }
+
             document.getElementById('car-time').textContent = carData.time;
             document.getElementById('car-coords').textContent = `${carData.lat.toFixed(6)}, ${carData.lng.toFixed(6)}`;
             document.getElementById('car-accuracy').textContent = carData.accuracy || '未知';
             document.getElementById('car-provider').textContent = carData.provider || 'GPS定位';
             document.getElementById('car-info').style.display = 'block';
+        }
+
+        // 根据坐标解析地址
+        async function resolveAddressFromCoords() {
+            try {
+                const url = `https://apis.map.qq.com/ws/geocoder/v1/?location=${carData.lat},${carData.lng}&key=67PBZ-AWOWQ-TTW5A-BTI3M-BNMHH-2YBXZ&get_poi=1`;
+
+                const response = await fetch(url);
+                const data = await response.json();
+
+                if (data.status === 0 && data.result) {
+                    const address = data.result.address;
+                    carData.address = address; // 更新carData中的地址
+                    document.getElementById('car-address').textContent = address;
+
+                    // 也更新信息窗口中的地址
+                    if (marker) {
+                        marker.setProperties({
+                            address: address
+                        });
+                    }
+                } else {
+                    document.getElementById('car-address').textContent = '地址解析失败';
+                }
+            } catch (error) {
+                console.error('地址解析失败:', error);
+                document.getElementById('car-address').textContent = '地址解析失败';
+            }
         }
 
         // 显示信息窗口（优化版）

@@ -271,6 +271,8 @@ class VehicleLocationApp {
 
             // 然后更新地址信息
             const address = await this.getAddress();
+            // 将地址保存到currentLocation对象中
+            this.currentLocation.address = address;
             this.updateAddressDisplay(address);
 
         } catch (error) {
@@ -365,6 +367,22 @@ class VehicleLocationApp {
     // 显示分享页面 - 跳转到独立页面
     async showSharePage() {
         try {
+            // 先获取当前地址，确保地址已解析
+            let currentAddress = '位置解析中...';
+            if (this.currentLocation && !this.currentLocation.address) {
+                // 如果地址还没有解析，先解析地址
+                try {
+                    currentAddress = await this.getAddress();
+                    // 将地址保存到currentLocation对象中
+                    this.currentLocation.address = currentAddress;
+                } catch (error) {
+                    console.warn('地址解析失败，使用默认值:', error);
+                    currentAddress = '地址获取失败';
+                }
+            } else if (this.currentLocation && this.currentLocation.address) {
+                currentAddress = this.currentLocation.address;
+            }
+
             // 生成分享页面的URL参数
             const params = new URLSearchParams({
                 car: this.currentCar.id,
@@ -373,9 +391,9 @@ class VehicleLocationApp {
                 color: this.currentCar.color,
                 lat: this.currentLocation.lat,
                 lng: this.currentLocation.lng,
-                address: this.currentLocation.address || '位置解析中...',
+                address: currentAddress,
                 accuracy: Math.round(this.currentLocation.accuracy),
-                time: this.currentLocation.timestamp,
+                time: Utils.formatTime(new Date(this.currentLocation.timestamp || Date.now())),
                 provider: this.currentLocation.provider
             });
 
