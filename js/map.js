@@ -204,14 +204,24 @@ class MapManager {
         `;
 
         // 添加车辆图标和名称
+        const isLightBackground = carInfo.color === '#F0F0F0';
+        const iconFilter = isLightBackground ? 'none' : 'brightness(0) invert(1)';
+        const textColor = isLightBackground ? '#333' : 'white';
+        const textShadow = isLightBackground ? '1px 1px 2px rgba(255,255,255,0.8)' : '1px 1px 2px rgba(0,0,0,0.5)';
+
         markerDiv.innerHTML = `
             <div style="width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; margin-bottom: 2px;">
-                <img src="${carInfo.logo}" alt="${carInfo.brand}" style="width: 100%; height: 100%; object-fit: contain; filter: brightness(0) invert(1);">
+                <img src="${carInfo.logo}" alt="${carInfo.brand}" style="width: 100%; height: 100%; object-fit: contain; filter: ${iconFilter};">
             </div>
-            <div style="font-size: 10px; font-weight: bold; text-shadow: 1px 1px 2px rgba(0,0,0,0.5);">
+            <div style="font-size: 10px; font-weight: bold; color: ${textColor}; text-shadow: ${textShadow};">
                 ${carInfo.name.substring(0, 2)}
             </div>
         `;
+
+        // 更新标记容器的边框（针对浅色背景）
+        if (isLightBackground) {
+            markerDiv.style.border = '4px solid #ccc';
+        }
 
         // 添加提示信息
         markerDiv.title = `${carInfo.name} (${carInfo.plate})\n位置: ${location.lat.toFixed(6)}, ${location.lng.toFixed(6)}`;
@@ -303,12 +313,17 @@ class MapManager {
 
     // 创建标记内容
     createMarkerContent(carInfo) {
+        // 为浅色背景（零跑）添加特殊样式
+        const isLightBackground = carInfo.color === '#F0F0F0';
+        const iconFilter = isLightBackground ? 'none' : 'brightness(0) invert(1)';
+        const borderStyle = isLightBackground ? 'border: 2px solid #ccc;' : '';
+
         return `
-            <div class="custom-marker" style="background-color: ${carInfo.color}">
+            <div class="custom-marker" style="background-color: ${carInfo.color}; ${borderStyle}">
                 <div class="marker-icon">
-                    <img src="${carInfo.logo}" alt="${carInfo.brand}" style="width: 20px; height: 20px; object-fit: contain; filter: brightness(0) invert(1);">
+                    <img src="${carInfo.logo}" alt="${carInfo.brand}" style="width: 20px; height: 20px; object-fit: contain; filter: ${iconFilter};">
                 </div>
-                <div class="marker-label">${carInfo.name}</div>
+                <div class="marker-label" style="color: ${isLightBackground ? '#333' : 'white'}">${carInfo.name}</div>
             </div>
         `;
     }
