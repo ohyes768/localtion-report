@@ -477,10 +477,11 @@
 
         // 创建自定义圆形标记
         function createCustomMarker() {
-            // 获取地图容器的位置信息
-            const mapCenter = map.getCenter();
-            const lat = carData.lat || mapCenter.getLat();
-            const lng = carData.lng || mapCenter.getLng();
+            const lat = carData.lat || 30.204763;
+            const lng = carData.lng || 120.204781;
+
+            // 先将地图中心设置到车辆位置
+            map.setCenter(new TMap.LatLng(lat, lng));
 
             // 使用屏幕坐标创建自定义标记
             const mapDiv = document.getElementById('map-container');
@@ -513,6 +514,9 @@
                 font-family: Arial, sans-serif;
                 text-align: center;
                 line-height: 1.2;
+                left: 50%;
+                top: 50%;
+                transform: translate(-50%, -50%);
             `;
 
             // 为浅色背景（零跑）添加边框
@@ -534,9 +538,6 @@
                 </div>
             `;
 
-            // 设置标记位置
-            updateMarkerPosition(markerDiv, new TMap.LatLng(lat, lng));
-
             // 添加点击事件
             markerDiv.onclick = () => {
                 const position = new TMap.LatLng(lat, lng);
@@ -548,12 +549,12 @@
 
             // 添加悬停效果
             markerDiv.onmouseover = () => {
-                markerDiv.style.transform = 'scale(1.1)';
+                markerDiv.style.transform = 'translate(-50%, -50%) scale(1.1)';
                 markerDiv.style.boxShadow = '0 6px 20px rgba(0,0,0,0.5), 0 0 32px rgba(0,0,0,0.4)';
             };
 
             markerDiv.onmouseout = () => {
-                markerDiv.style.transform = 'scale(1)';
+                markerDiv.style.transform = 'translate(-50%, -50%) scale(1)';
                 markerDiv.style.boxShadow = isLightBackground ?
                     '0 4px 12px rgba(0,0,0,0.2), 0 0 24px rgba(0,0,0,0.1)' :
                     '0 4px 12px rgba(0,0,0,0.4), 0 0 24px rgba(0,0,0,0.3)';
@@ -566,12 +567,13 @@
             // 保存标记引用
             window.vehicleMarker = markerDiv;
 
-            // 监听地图移动，更新标记位置
+            // 地图移动时，重置标记到中心（因为地图中心已经设置为车辆位置）
             map.on('idle', () => {
-                updateMarkerPosition(markerDiv, new TMap.LatLng(lat, lng));
+                // 标记已经通过 left: 50%, top: 50% 固定在容器中心
+                // 地图中心就是我们设置的位置，所以不需要额外计算
             });
 
-            console.log('✅ 自定义标记添加成功');
+            console.log('✅ 自定义标记添加成功，位置:', lat, lng);
         }
 
         // 更新标记位置
@@ -579,17 +581,45 @@
             if (!map || !markerDiv) return;
 
             try {
-                // 使用腾讯地图GL版本的坐标转换方法
-                const pixel = map.fromLatLngToContainerPixel ?
-                    map.fromLatLngToContainerPixel(latLng) :
-                    { x: 0, y: 0 }; // 默认居中
+                // 尝试使用腾讯地图GL版本的不同API
+                let pixel = null;
 
-                markerDiv.style.left = pixel.x + 'px';
-                markerDiv.style.top = pixel.y + 'px';
-                markerDiv.style.transform = 'translate(-50%, -50%)';
+                // 方法1：尝试使用世界坐标转换
+                if (map.latLngToContainerPoint) {
+                    pixel = map.latLngToContainerPoint(latLng);
+                }
+                // 方法2：尝试使用世界坐标
+                else if (map.fromLatLngToPoint) {
+                    const point = map.fromLatLngToPoint(latLng);
+                    const worldContainer = map.getContainer();
+                    if (worldContainer) {
+                        const scale = Math.pow(2, map.getZoom());
+                        pixel = {
+                            x: point.x * scale,
+                            y: point.y * scale
+                        };
+                    }
+                }
+                // 方法3：直接使用地图容器的中心位置
+                else {
+                    const mapContainer = document.getElementById('map-container');
+                    if (mapContainer) {
+                        const rect = mapContainer.getBoundingClientRect();
+                        pixel = {
+                            x: rect.width / 2,
+                            y: rect.height / 2
+                        };
+                    }
+                }
+
+                if (pixel) {
+                    markerDiv.style.left = pixel.x + 'px';
+                    markerDiv.style.top = pixel.y + 'px';
+                    markerDiv.style.transform = 'translate(-50%, -50%)';
+                }
             } catch (error) {
                 console.warn('更新标记位置失败:', error);
-                // 备用方案：使用窗口坐标
+                // 最后的备用方案：使用地图容器中心
                 const mapContainer = document.getElementById('map-container');
                 if (mapContainer) {
                     const rect = mapContainer.getBoundingClientRect();
