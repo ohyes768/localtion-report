@@ -501,9 +501,8 @@ body {
     align-items: center;
     margin-bottom: 8px;
     gap: 6px;
-    flex-wrap: nowrap; /* 防止换行 */
+    flex-wrap: wrap; /* 允许换行以适应小屏幕 */
     min-width: 0; /* 确保flex子元素可以收缩 */
-    justify-content: space-between; /* 均匀分布元素 */
 }
 
 .coordinate-label {
@@ -524,7 +523,7 @@ body {
     font-weight: 500;
     border: 1px solid #d0d7ff;
     flex: 1;
-    min-width: 80px;
+    min-width: 120px; /* 增加最小宽度，确保在小屏幕上不会太挤 */
     max-width: 120px; /* 进一步减少最大宽度 */
     overflow: hidden;
     text-overflow: ellipsis;
@@ -536,18 +535,19 @@ body {
     background: #007AFF;
     color: white;
     border: none;
-    padding: 4px 6px;
+    padding: 4px 8px;
     border-radius: 4px;
     cursor: pointer;
-    font-size: 11px;
+    font-size: 12px;
     transition: all 0.2s ease;
     display: flex;
     align-items: center;
     justify-content: center;
-    min-width: 28px;
+    min-width: 32px;
     height: 28px;
     box-shadow: 0 1px 4px rgba(0, 122, 255, 0.3);
     flex-shrink: 0;
+    white-space: nowrap; /* 防止按钮文字换行 */
 }
 
 .copy-btn:hover {
@@ -622,18 +622,20 @@ body {
 /* 响应式设计 */
 @media (max-width: 480px) {
     .coordinate-item {
-        flex-direction: column;
-        align-items: flex-start;
-        gap: 8px;
+        flex-wrap: wrap; /* 改为允许换行，而不是强制垂直 */
+        gap: 6px;
+        align-items: center;
     }
 
     .coordinate-value {
-        width: 100%;
-        min-width: unset;
+        flex: 1; /* 让坐标值占据更多空间 */
+        min-width: 0; /* 允许收缩 */
+        font-size: 12px;
     }
 
     .copy-btn {
-        align-self: flex-end;
+        align-self: center; /* 居中对齐 */
+        flex-shrink: 0; /* 防止被压缩 */
     }
 
     .coordinate-details {
