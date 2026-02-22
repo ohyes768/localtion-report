@@ -561,6 +561,16 @@ class ScreenshotManager {
      * 复制截图到剪贴板
      */
     async copyScreenshotToClipboard(dataUrl) {
+        // 检测移动端环境
+        const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+        const isWechat = /micromessenger/i.test(navigator.userAgent);
+
+        // 移动端或微信环境下，提示使用保存功能
+        if (isMobile || isWechat) {
+            Utils.showToast('📱 手机端请使用"保存图片"功能');
+            return;
+        }
+
         try {
             const response = await fetch(dataUrl);
             const blob = await response.blob();
@@ -569,7 +579,7 @@ class ScreenshotManager {
                 await navigator.clipboard.write([
                     new ClipboardItem({ 'image/png': blob })
                 ]);
-                Utils.showToast('✅ 图片已复制');
+                Utils.showToast('✅ 图片已复制，可直接粘贴');
             } else {
                 Utils.showToast('❌ 浏览器不支持剪贴板功能');
             }
