@@ -38,7 +38,7 @@ const VEHICLE_CONFIG = {
 const MAP_CONFIG = {
     key: '67PBZ-AWOWQ-TTW5A-BTI3M-BNMHH-2YBXZ',
     center: [39.908692, 116.397477],
-    zoom: 16,
+    zoom: 18,  // 默认放大级别
     style: 'normal',
     // 默认测试位置（杭州西湖附近）
     defaultLocation: {

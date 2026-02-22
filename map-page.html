@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>车辆位置分享</title>
+
+    <!-- Bootstrap 5 CSS (使用国内 CDN) -->
+    <link href="https://cdn.bootcdn.net/ajax/libs/bootstrap/5.3.2/css/bootstrap.min.css" rel="stylesheet">
+
+    <!-- Bootstrap Icons (使用国内 CDN) -->
+    <link rel="stylesheet" href="https://cdn.bootcdn.net/ajax/libs/bootstrap-icons/1.11.1/font/bootstrap-icons.min.css">
+
+    <!-- 腾讯地图API -->
+    <script charset="utf-8" src="https://map.qq.com/api/gljs?v=1.exp&key=67PBZ-AWOWQ-TTW5A-BTI3M-BNMHH-2YBXZ"></script>
+
+    <!-- 自定义样式 -->
+    <link rel="stylesheet" href="css/map-page.css">
+</head>
+<body>
+    <!-- 页面头部 -->
+    <header class="page-header">
+        <div class="container py-3">
+            <h1 class="main-title text-center">家庭车辆位置分享系统</h1>
+            <p class="subtitle text-center text-muted">记录和分享车辆位置</p>
+        </div>
+    </header>
+
+    <!-- 车辆信息卡片 -->
+    <div class="container mb-3">
+        <div class="vehicle-info-card" id="vehicle-info-card">
+            <!-- 内容将由JavaScript动态生成 -->
+        </div>
+    </div>
+
+    <!-- 地图容器 -->
+    <div class="container mb-3">
+        <div id="map-container" class="map-container">
+            <!-- 地图将在这里渲染 -->
+        </div>
+    </div>
+
+    <!-- 底部操作按钮 -->
+    <div class="container mb-4">
+        <div class="action-buttons">
+            <button class="btn btn-secondary" id="switch-vehicle">
+                <i class="bi bi-arrow-repeat"></i> 切换车辆
+            </button>
+            <button class="btn btn-primary" id="refresh-location">
+                <i class="bi bi-arrow-clockwise"></i> 刷新定位
+            </button>
+            <button class="btn btn-success" id="share-location">
+                <i class="bi bi-share"></i> 截图分享
+            </button>
+        </div>
+    </div>
+
+    <!-- 错误提示模态框 -->
+    <div class="modal fade" id="errorModal" tabindex="-1">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">提示</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body" id="errorMessage">
+                    错误信息
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-primary" data-bs-dismiss="modal">确定</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast提示 -->
+    <div class="toast-container position-fixed top-0 end-0 p-3">
+        <div id="toast" class="toast" role="alert">
+            <div class="toast-header">
+                <strong class="me-auto" id="toastTitle">提示</strong>
+                <button type="button" class="btn-close" data-bs-dismiss="toast"></button>
+            </div>
+            <div class="toast-body" id="toastBody">
+                提示信息
+            </div>
+        </div>
+    </div>
+
+    <!-- 脚本 -->
+    <script src="https://cdn.bootcdn.net/ajax/libs/bootstrap/5.3.2/js/bootstrap.bundle.min.js"></script>
+    <script src="js/config.js"></script>
+    <script src="js/utils.js"></script>
+    <script src="js/location.js"></script>
+    <script src="js/map.js?v=2.2"></script>
+    <script src="js/modules/vehicle-info-card.js"></script>
+    <script src="js/modules/screenshot.js?v=3.7"></script>
+    <script src="js/modules/action-buttons.js"></script>
+    <script src="js/map-page-app.js?v=2.2"></script>
+</body>
+</html>

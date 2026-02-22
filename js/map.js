@@ -9,6 +9,73 @@ class MapManager {
         this.retryCount = 0;
         this.addressAPILimited = false; // 地址API配额限制标志
         // 移除addressCache，不再使用缓存
+        this.webGLContextIntercepted = false; // WebGL上下文拦截标志
+    }
+
+    /**
+     * 获取地图Canvas（用于截图）
+     */
+    getCanvas() {
+        if (!this.map) {
+            return null;
+        }
+
+        // 尝试从地图容器获取canvas
+        const container = this.map.getElement ? this.map.getElement() : document.getElementById('map-container');
+        if (container) {
+            const canvas = container.querySelector('canvas');
+            if (canvas) {
+                console.log('📸 找到地图Canvas:', canvas.width, 'x', canvas.height);
+                return canvas;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * 拦截WebGL上下文创建，强制设置preserveDrawingBuffer=true
+     * 这必须在地图初始化之前调用
+     */
+    interceptWebGLContext() {
+        if (this.webGLContextIntercepted) {
+            console.log('⚠️ WebGL上下文已拦截，跳过');
+            return;
+        }
+
+        console.log('🎮 拦截WebGL上下文创建，启用preserveDrawingBuffer...');
+
+        const originalGetContext = HTMLCanvasElement.prototype.getContext;
+
+        HTMLCanvasElement.prototype.getContext = function(contextType, ...args) {
+            if (contextType === 'webgl' || contextType === 'experimental-webgl' || contextType === 'webgl2') {
+                console.log('🎮 拦截WebGL上下文，强制设置preserveDrawingBuffer=true');
+
+                let contextAttributes = args[0] || {};
+
+                // 强制设置preserveDrawingBuffer为true以支持截图
+                contextAttributes.preserveDrawingBuffer = true;
+                contextAttributes.premultipliedAlpha = false;
+                contextAttributes.alpha = true;
+                contextAttributes.antialias = true;
+                contextAttributes.depth = true;
+                contextAttributes.stencil = false;
+
+                console.log('🔧 修改后的WebGL上下文属性:', contextAttributes);
+
+                const gl = originalGetContext.call(this, contextType, contextAttributes);
+
+                if (gl) {
+                    console.log('✅ WebGL上下文创建成功，preserveDrawingBuffer已启用');
+                }
+
+                return gl;
+            }
+            return originalGetContext.call(this, contextType, ...args);
+        };
+
+        this.webGLContextIntercepted = true;
+        console.log('✅ WebGL上下文拦截已设置');
     }
 
     // 初始化地图

@@ -1,0 +1,304 @@
+/* 定位页样式 */
+
+/* 全局样式 */
+body {
+    background: #f8f9fa;
+}
+
+/* 页面头部 */
+.page-header {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    margin-bottom: 20px;
+}
+
+.main-title {
+    font-size: 22px;
+    font-weight: bold;
+    margin: 0;
+    color: white;
+}
+
+.subtitle {
+    font-size: 14px;
+    margin: 0;
+    color: rgba(255, 255, 255, 0.9);
+}
+
+/* 车辆信息卡片 */
+.vehicle-info-card {
+    background: white;
+    border-radius: 12px;
+    padding: 16px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+/* 左右分栏布局 */
+.vehicle-info-content {
+    display: flex;
+    gap: 20px;
+    align-items: center;
+}
+
+/* 左侧：车辆信息 */
+.vehicle-left {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-shrink: 0;
+    min-width: 180px;
+}
+
+.vehicle-avatar {
+    width: 48px;
+    height: 48px;
+    flex-shrink: 0;
+}
+
+.vehicle-avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+}
+
+.vehicle-details {
+    flex: 1;
+}
+
+.vehicle-name {
+    font-size: 16px;
+    font-weight: 600;
+    color: #333;
+    margin-bottom: 2px;
+}
+
+.vehicle-plate {
+    font-size: 14px;
+    color: #666;
+    margin: 0;
+}
+
+/* 右侧：位置信息 */
+.location-right {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.info-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 10px;
+    background: #f8f9fa;
+    border-radius: 6px;
+}
+
+.info-item i {
+    font-size: 16px;
+    flex-shrink: 0;
+}
+
+.info-label {
+    font-weight: 600;
+    color: #495057;
+    font-size: 13px;
+    flex-shrink: 0;
+}
+
+.info-value {
+    color: #212529;
+    font-size: 13px;
+    word-break: break-all;
+    flex: 1;
+}
+
+/* 地图容器 */
+.map-container {
+    background: white;
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    min-height: 300px;
+    max-height: 400px;
+}
+
+#map-container {
+    width: 100%;
+    height: 100%;
+}
+
+/* 底部操作按钮 */
+.action-buttons {
+    display: flex;
+    gap: 10px;
+}
+
+.action-buttons .btn {
+    flex: 1;
+    padding: 14px 16px;
+    font-size: 15px;
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    border-radius: 10px;
+}
+
+.action-buttons .btn i {
+    font-size: 18px;
+}
+
+/* 按钮禁用状态 */
+.action-buttons .btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+/* Toast提示 */
+.toast {
+    min-width: 250px;
+}
+
+/* Modal模态框 */
+.modal-content {
+    border-radius: 12px;
+    border: none;
+}
+
+.modal-header {
+    border-bottom: 1px solid #eee;
+    padding: 16px 20px;
+}
+
+.modal-body {
+    padding: 20px;
+    font-size: 15px;
+    color: #495057;
+}
+
+.modal-footer {
+    border-top: 1px solid #eee;
+    padding: 12px 20px;
+}
+
+/* 加载动画 */
+.spinner-border-sm {
+    width: 1rem;
+    height: 1rem;
+    border-width: 0.15em;
+}
+
+/* 响应式优化 */
+@media (max-width: 576px) {
+    .main-title {
+        font-size: 18px;
+    }
+
+    .subtitle {
+        font-size: 12px;
+    }
+
+    .vehicle-info-card {
+        padding: 12px;
+    }
+
+    /* 移动端改为上下布局 */
+    .vehicle-info-content {
+        flex-direction: column;
+        gap: 12px;
+    }
+
+    .vehicle-left {
+        width: 100%;
+        min-width: auto;
+    }
+
+    .vehicle-avatar {
+        width: 40px;
+        height: 40px;
+    }
+
+    .vehicle-name {
+        font-size: 15px;
+    }
+
+    .vehicle-plate {
+        font-size: 13px;
+    }
+
+    .location-right {
+        width: 100%;
+        gap: 6px;
+    }
+
+    .info-item {
+        padding: 5px 8px;
+        font-size: 12px;
+    }
+
+    .info-item i {
+        font-size: 14px;
+    }
+
+    .info-value {
+        font-size: 12px;
+    }
+
+    .map-container {
+        min-height: 250px;
+        max-height: 300px;
+    }
+
+    .action-buttons {
+        flex-direction: row;
+    }
+
+    .action-buttons .btn {
+        padding: 12px 14px;
+        font-size: 14px;
+    }
+
+    .action-buttons .btn span {
+        /* 在小屏幕上隐藏按钮文字，只显示图标 */
+        display: none;
+    }
+
+    .action-buttons .btn i {
+        margin: 0;
+        font-size: 20px;
+    }
+}
+
+/* 中等屏幕优化（平板横屏等） */
+@media (min-width: 577px) and (max-width: 768px) {
+    .vehicle-left {
+        min-width: 160px;
+    }
+
+    .vehicle-name {
+        font-size: 15px;
+    }
+
+    .info-item {
+        padding: 5px 8px;
+    }
+
+    .info-value {
+        font-size: 12px;
+    }
+}
+
+/* 深色模式支持（可选） */
+@media (prefers-color-scheme: dark) {
+    /* 如果需要支持深色模式，可以在这里添加样式 */
+}
+
+/* iOS安全区域适配 */
+@supports (padding: max(0px)) {
+    .action-buttons {
+        padding-bottom: max(10px, env(safe-area-inset-bottom));
+    }
+}
