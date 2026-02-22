@@ -1,0 +1,167 @@
+/* 车辆选择页样式 */
+
+/* 全局样式 */
+body {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    min-height: 100vh;
+    margin: 0;
+    padding: 20px 0;
+}
+
+.vehicle-select-container {
+    max-width: 600px;
+    margin: 0 auto;
+    padding: 20px;
+}
+
+/* 页面标题 */
+.main-title {
+    font-size: 28px;
+    font-weight: bold;
+    margin-bottom: 8px;
+    color: #333;
+}
+
+.subtitle {
+    font-size: 16px;
+    color: #666;
+}
+
+/* 车辆选择区域 */
+.vehicle-selection {
+    margin-top: 30px;
+}
+
+.section-title {
+    font-size: 20px;
+    font-weight: 600;
+    margin-bottom: 20px;
+    color: #333;
+}
+
+/* 车辆卡片 */
+.vehicle-card {
+    background: white;
+    border-radius: 12px;
+    padding: 24px;
+    text-align: center;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    cursor: pointer;
+    transition: all 0.3s ease;
+    aspect-ratio: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    height: 100%;
+}
+
+.vehicle-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.15);
+}
+
+.vehicle-card:active {
+    transform: scale(0.98);
+}
+
+/* 车辆Logo */
+.vehicle-logo {
+    width: 72px;
+    height: 72px;
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.vehicle-logo img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+}
+
+/* 车辆名称 */
+.vehicle-name {
+    font-size: 18px;
+    font-weight: 600;
+    margin-bottom: 6px;
+    color: #333;
+}
+
+/* 车牌号 */
+.vehicle-plate {
+    font-size: 15px;
+    color: #666;
+    font-weight: 500;
+}
+
+/* 响应式优化 */
+@media (max-width: 576px) {
+    .vehicle-select-container {
+        padding: 16px;
+    }
+
+    .main-title {
+        font-size: 24px;
+    }
+
+    .subtitle {
+        font-size: 14px;
+    }
+
+    .section-title {
+        font-size: 18px;
+    }
+
+    .vehicle-card {
+        padding: 20px;
+    }
+
+    .vehicle-logo {
+        width: 60px;
+        height: 60px;
+        margin-bottom: 12px;
+    }
+
+    .vehicle-name {
+        font-size: 16px;
+    }
+
+    .vehicle-plate {
+        font-size: 14px;
+    }
+}
+
+/* 加载动画 */
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.vehicle-card {
+    animation: fadeIn 0.5s ease-out;
+}
+
+/* 为每个卡片添加延迟动画效果 */
+.vehicle-card:nth-child(1) {
+    animation-delay: 0.1s;
+}
+
+.vehicle-card:nth-child(2) {
+    animation-delay: 0.2s;
+}
+
+.vehicle-card:nth-child(3) {
+    animation-delay: 0.3s;
+}
+
+.vehicle-card:nth-child(4) {
+    animation-delay: 0.4s;
+}

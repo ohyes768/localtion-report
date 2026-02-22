@@ -1,11 +1,25 @@
 # 车辆位置分享系统 - API文档
-**项目状态：** 已完成开发 ✅
-**文档版本：** v3.0
-**最后更新：** 2024-12-12
+**项目状态：** v5.0已完成 ✅
+**文档版本：** v5.0
+**最后更新：** 2026-02-22
 
 ## 概述
 
-本文档描述了车辆位置分享系统v3.0（最终版）中使用的API接口和模块。
+本文档描述了车辆位置分享系统v5.0（双页面架构版）中使用的API接口和模块。
+
+### v5.0 变更说明
+- **架构变化：** 双页面架构 - 车辆选择页 + 地图定位页
+- **核心新增：**
+  - WebGL截图功能（直接截图，无需跳转）
+  - Canvas绘制中心点标记
+  - 车辆信息卡片组件（左右分栏布局）
+  - 操作按钮组件
+  - 主应用逻辑（map-page-app.js）
+- **保持不变的模块：**
+  - `js/location.js` - LocationManager（定位管理）✅
+  - `js/map.js` - MapManager（地图管理+WebGL上下文拦截）✅
+  - `js/utils.js` - Utils工具函数 ✅
+  - `js/config.js` - 配置文件 ✅
 
 ## 目录
 
@@ -134,7 +148,180 @@ navigator.geolocation.getCurrentPosition(
 
 ## 3. 内部模块API
 
-### 3.1 LocationManager
+### 3.1 ScreenshotManager (v5.0新增)
+
+**构造函数**:
+```javascript
+const screenshotManager = new ScreenshotManager();
+```
+
+**主要方法**:
+
+#### initialize(mapManager, car, location, address)
+初始化截图管理器
+
+**参数**:
+```javascript
+{
+    mapManager: MapManager,    // 地图管理器实例
+    car: Object,               // 车辆信息
+    location: Object,          // 位置信息
+    address: string            // 地址字符串
+}
+```
+
+#### captureAndShare()
+截图并分享 - 主入口方法
+
+**返回值**: `Promise<void>`
+
+**示例**:
+```javascript
+await screenshotManager.captureAndShare();
+```
+
+#### captureMap()
+截取地图（仅WebGL）
+
+**返回值**: `Promise<string>` - 图片DataURL
+
+**技术要点**:
+- WebGL上下文必须设置 `preserveDrawingBuffer: true`
+- 等待800ms确保地图完全渲染
+- 使用 `gl.readPixels()` 读取像素
+- WebGL像素上下翻转，需要修正
+
+#### addWatermark(sourceCanvas)
+添加水印（中心点标记+底部信息条）
+
+**参数**:
+```javascript
+{
+    sourceCanvas: HTMLCanvasElement  // 原始地图Canvas
+}
+```
+
+**返回值**: `Promise<HTMLCanvasElement>` - 带水印的Canvas
+
+#### drawCenterMarker(ctx, width, height)
+绘制中心点标记（Canvas绘制）
+
+**参数**:
+```javascript
+{
+    ctx: CanvasRenderingContext2D,  // Canvas 2D上下文
+    width: number,                  // Canvas宽度
+    height: number                  // Canvas高度
+}
+```
+
+**标记设计**:
+- 外圈发光效果（品牌颜色，透明度0.3→0）
+- 阴影效果（rgba(0,0,0,0.4), 模糊12px）
+- 主标记圆圈（品牌颜色，直径60px）
+- 白色边框（4px）
+- 车辆logo（28x28px，深色背景转白色）
+- 车辆名称（标记下方，品牌颜色）
+
+### 3.2 VehicleInfoCard (v5.0新增)
+
+**构造函数**:
+```javascript
+const infoCard = new VehicleInfoCard(containerId);
+```
+
+**参数**:
+```javascript
+{
+    containerId: string  // 容器DOM ID
+}
+```
+
+**主要方法**:
+
+#### initialize(vehicle)
+初始化卡片
+
+**参数**:
+```javascript
+{
+    vehicle: Object  // 车辆信息（从VEHICLE_CONFIG获取）
+}
+```
+
+#### updateLocation(location)
+更新位置信息
+
+**参数**:
+```javascript
+{
+    location: {
+        lat: number,
+        lng: number,
+        isDefaultLocation?: boolean
+    }
+}
+```
+
+#### updateAddress(address)
+更新地址信息
+
+**参数**:
+```javascript
+{
+    address: string
+}
+```
+
+#### updateParkingTime()
+更新停车时间（使用当前时间戳）
+
+#### setLoading(loading)
+显示加载状态
+
+**参数**:
+```javascript
+{
+    loading: boolean
+}
+```
+
+#### showError(message)
+显示错误状态
+
+**参数**:
+```javascript
+{
+    message: string
+}
+```
+
+### 3.3 ActionButtons (v5.0新增)
+
+**构造函数**:
+```javascript
+const actionButtons = new ActionButtons();
+```
+
+**主要方法**:
+
+#### on(event, callback)
+注册事件监听
+
+**参数**:
+```javascript
+{
+    event: 'switch' | 'refresh' | 'share',
+    callback: Function
+}
+```
+
+**事件说明**:
+- `switch`: 切换车辆（跳转到index.html）
+- `refresh`: 刷新定位
+- `share`: 截图分享
+
+### 3.4 LocationManager
 
 **构造函数**:
 ```javascript
@@ -181,7 +368,7 @@ try {
 
 **返回值**: `boolean` - 是否成功启用
 
-### 3.2 MapManager
+### 3.5 MapManager (v5.0更新)
 
 **构造函数**:
 ```javascript
@@ -226,6 +413,31 @@ const mapManager = new MapManager();
 }
 ```
 
+#### interceptWebGLContext() (v5.0新增)
+拦截WebGL上下文创建，强制启用preserveDrawingBuffer
+
+**用途**: 确保WebGL Canvas可以被截取
+
+**实现原理**:
+```javascript
+interceptWebGLContext() {
+    const originalGetContext = HTMLCanvasElement.prototype.getContext;
+    HTMLCanvasElement.prototype.getContext = function(contextType, ...args) {
+        if (contextType === 'webgl' || contextType === 'experimental-webgl') {
+            let contextAttributes = args[0] || {};
+            contextAttributes.preserveDrawingBuffer = true;  // 关键配置
+            return originalGetContext.call(this, contextType, contextAttributes);
+        }
+        return originalGetContext.call(this, contextType, ...args);
+    };
+}
+```
+
+#### getCanvas() (v5.0新增)
+获取地图Canvas元素（用于截图）
+
+**返回值**: `HTMLCanvasElement | null`
+
 #### getAddressFromLocation(location)
 逆地理编码获取地址
 
@@ -238,7 +450,7 @@ const mapManager = new MapManager();
 
 **返回值**: `Promise<string>` - 地址信息
 
-### 3.3 Utils工具模块
+### 3.6 Utils工具模块
 
 #### getUrlParams()
 解析URL参数
@@ -288,7 +500,7 @@ console.log('车辆ID:', params.car);
 
 ## 4. 配置接口
 
-### 4.1 车辆配置 (VEHICLE_CONFIG) - v3.0更新
+### 4.1 车辆配置 (VEHICLE_CONFIG) - v5.0
 
 ```javascript
 const VEHICLE_CONFIG = {
@@ -327,13 +539,13 @@ const VEHICLE_CONFIG = {
 };
 ```
 
-### 4.2 地图配置 (MAP_CONFIG)
+### 4.2 地图配置 (MAP_CONFIG) - v5.0更新
 
 ```javascript
 const MAP_CONFIG = {
     key: '67PBZ-AWOWQ-TTW5A-BTI3M-BNMHH-2YBXZ',
     center: [39.908692, 116.397477],
-    zoom: 16,
+    zoom: 18,  // v5.0: 默认放大级别调整为18
     style: 'normal',
     defaultLocation: {
         lat: 30.204763,
@@ -461,6 +673,31 @@ try {
 - 生产环境建议使用后端代理或限制访问域名
 
 ## 8. 版本更新记录
+
+### v5.0.0 (2026-02-22) - 双页面架构版 ✅
+- 🆕 **双页面架构**：
+  - 车辆选择页（index.html）- 2x2网格布局
+  - 地图定位页（map-page.html）- 左右分栏信息卡片
+- 🆕 **WebGL截图功能**：
+  - 直接截取WebGL地图Canvas，无需跳转页面
+  - Canvas绘制中心点标记（使用真实车辆logo）
+  - 底部水印（车辆信息、地址、时间、放大倍数）
+  - 截图对话框显示时，页面DOM标记自动隐藏
+- 🆕 **Bootstrap 5 + BootCDN**：使用国内CDN加速
+- ✅ **地图放大倍数显示**：默认x18
+- ✅ **模块化JavaScript架构**：
+  - VehicleInfoCard - 车辆信息卡片组件
+  - ScreenshotManager - WebGL截图管理器
+  - ActionButtons - 操作按钮组件
+  - MapPageApp - 主应用逻辑
+
+### v4.0.0 (2026-02-22) - UI重构版 🔄
+- 🆕 **新增车辆选择页面**：2x2网格布局展示4个车辆
+- 🆕 **车辆信息卡片**：展示车型、车牌、经纬度、地址、停车时间
+- 🆕 **引入Bootstrap 5**：精简版UI框架，移动端优先
+- ✅ **核心功能保持不变**：定位、地图、分享、截图功能全部保留
+- ✅ **API接口保持不变**：所有内部模块API无变化
+- 🔄 **UI重构**：index.html和map-page.html的UI层重新设计
 
 ### v3.0.0 (2024-12-12) - 最终版
 - ✅ **品牌Logo集成**：所有车辆标记替换为品牌官方Logo
