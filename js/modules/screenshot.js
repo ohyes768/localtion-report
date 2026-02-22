@@ -542,6 +542,15 @@ class ScreenshotManager {
      * 下载截图
      */
     downloadScreenshot(dataUrl) {
+        // 检测微信浏览器
+        const isWechat = /micromessenger/i.test(navigator.userAgent);
+
+        if (isWechat) {
+            // 微信浏览器中，显示长按保存提示
+            this.showWechatSaveGuide(dataUrl);
+            return;
+        }
+
         try {
             const link = document.createElement('a');
             link.href = dataUrl;
@@ -555,6 +564,86 @@ class ScreenshotManager {
             console.error('❌ 下载失败:', error);
             Utils.showToast('下载失败');
         }
+    }
+
+    /**
+     * 显示微信浏览器保存图片引导
+     */
+    showWechatSaveGuide(dataUrl) {
+        // 创建引导提示
+        const guide = document.createElement('div');
+        guide.style.cssText = `
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.85);
+            z-index: 99999;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+            box-sizing: border-box;
+        `;
+
+        guide.innerHTML = `
+            <div style="
+                background: white;
+                border-radius: 16px;
+                padding: 30px;
+                max-width: 320px;
+                text-align: center;
+                box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+            ">
+                <div style="font-size: 48px; margin-bottom: 16px;">📱</div>
+                <h3 style="margin: 0 0 16px 0; color: #333; font-size: 20px;">保存图片</h3>
+                <div style="margin-bottom: 20px; color: #666; line-height: 1.6;">
+                    <p style="margin: 0 0 12px 0;">微信浏览器无法直接下载</p>
+                    <p style="margin: 0 0 12px 0;">请按以下步骤操作：</p>
+                    <div style="text-align: left; background: #f5f5f5; padding: 16px; border-radius: 8px; margin-top: 12px;">
+                        <p style="margin: 0 0 8px 0;">👆 <strong>长按下方图片</strong></p>
+                        <p style="margin: 0 0 8px 0;">💾 选择<strong>"保存图片"</strong></p>
+                        <p style="margin: 0;">✅ 完成保存</p>
+                    </div>
+                </div>
+                <img src="${dataUrl}" style="
+                    width: 100%;
+                    max-width: 280px;
+                    border-radius: 8px;
+                    margin-bottom: 20px;
+                    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+                    user-select: none;
+                    -webkit-user-select: none;
+                    -webkit-touch-callout: default;
+                " />
+                <button id="close-wechat-guide" style="
+                    background: #07C160;
+                    color: white;
+                    border: none;
+                    padding: 12px 32px;
+                    border-radius: 24px;
+                    font-size: 16px;
+                    cursor: pointer;
+                    font-weight: 500;
+                ">知道了</button>
+            </div>
+        `;
+
+        document.body.appendChild(guide);
+
+        // 绑定关闭事件
+        guide.querySelector('#close-wechat-guide').addEventListener('click', () => {
+            document.body.removeChild(guide);
+        });
+
+        // 点击背景关闭
+        guide.addEventListener('click', (e) => {
+            if (e.target === guide) {
+                document.body.removeChild(guide);
+            }
+        });
     }
 
     /**
