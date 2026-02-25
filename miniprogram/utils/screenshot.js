@@ -66,15 +66,29 @@ class ScreenshotManager {
       ctx.drawImage(mapImage, 0, 0, this.canvasWidth, this.canvasHeight);
       console.log('地图底图绘制完成');
 
-      // 4. 绘制车辆标记
-      this._drawMarker(ctx, carInfo, this.canvasWidth / 2, this.canvasHeight / 2);
+      // 4. 加载车辆 Logo
+      const logoImage = canvas.createImage();
+      await new Promise((resolve, reject) => {
+        logoImage.onload = () => {
+          console.log('车辆Logo加载完成:', carInfo.logo);
+          resolve();
+        };
+        logoImage.onerror = (err) => {
+          console.log('车辆Logo加载失败，将使用emoji:', err);
+          resolve(); // Logo加载失败也继续，使用emoji
+        };
+        logoImage.src = carInfo.logo;
+      });
+
+      // 5. 绘制车辆标记（传入Logo图片）
+      this._drawMarker(ctx, carInfo, this.canvasWidth / 2, this.canvasHeight / 2, logoImage);
       console.log('车辆标记绘制完成');
 
-      // 5. 绘制信息卡片
-      this._drawInfoCard(ctx, carInfo, location);
+      // 6. 绘制信息卡片
+      this._drawInfoCard(ctx, carInfo, location, logoImage);
       console.log('信息卡片绘制完成');
 
-      // 6. 导出图片
+      // 7. 导出图片
       const tempFilePath = await this._exportImage(canvas);
       console.log('截图导出成功:', tempFilePath);
 
@@ -125,7 +139,7 @@ class ScreenshotManager {
   /**
    * 绘制车辆标记
    */
-  _drawMarker(ctx, carInfo, centerX, centerY) {
+  _drawMarker(ctx, carInfo, centerX, centerY, logoImage) {
     const color = carInfo.color || '#007AFF';
 
     // 外圈发光效果
@@ -156,22 +170,40 @@ class ScreenshotManager {
     ctx.arc(centerX, centerY, 30, 0, 2 * Math.PI);
     ctx.stroke();
 
-    // 绘制车辆标识（文字）
-    ctx.fillStyle = carInfo.isLight ? '#333' : 'white';
-    ctx.font = '16px sans-serif';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText('🚗', centerX, centerY - 6);
+    // 绘制车辆 Logo（如果有且加载成功）
+    if (logoImage && logoImage.complete && logoImage.width > 0) {
+      const logoSize = 28;
+      ctx.drawImage(
+        logoImage,
+        centerX - logoSize / 2,
+        centerY - logoSize / 2 - 5,
+        logoSize,
+        logoSize
+      );
+      // 车辆名称缩写（在Logo下方）
+      ctx.fillStyle = carInfo.isLight ? '#333' : 'white';
+      ctx.font = 'bold 10px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(carInfo.name.substring(0, 2), centerX, centerY + 20);
+    } else {
+      // Logo加载失败时使用 emoji
+      ctx.fillStyle = carInfo.isLight ? '#333' : 'white';
+      ctx.font = '16px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('🚗', centerX, centerY - 6);
 
-    // 车辆名称缩写
-    ctx.font = '12px sans-serif';
-    ctx.fillText(carInfo.name.substring(0, 2), centerX, centerY + 14);
+      // 车辆名称缩写
+      ctx.font = '12px sans-serif';
+      ctx.fillText(carInfo.name.substring(0, 2), centerX, centerY + 14);
+    }
   }
 
   /**
    * 绘制信息卡片
    */
-  _drawInfoCard(ctx, carInfo, location) {
+  _drawInfoCard(ctx, carInfo, location, logoImage) {
     const cardY = this.canvasHeight - 90;
     const cardHeight = 70;
 
@@ -179,15 +211,36 @@ class ScreenshotManager {
     ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
     ctx.fillRect(20, cardY, this.canvasWidth - 40, cardHeight);
 
-    // 车辆图标和名称
-    ctx.fillStyle = 'white';
-    ctx.font = '18px sans-serif';
-    ctx.textAlign = 'left';
-    ctx.fillText(`🚗 ${carInfo.name}`, 40, cardY + 25);
+    // 绘制车辆 Logo（如果有）
+    if (logoImage && logoImage.complete && logoImage.width > 0) {
+      const logoSize = 32;
+      ctx.drawImage(
+        logoImage,
+        40,
+        cardY + 19,
+        logoSize,
+        logoSize
+      );
 
-    // 车牌号
-    ctx.font = '14px sans-serif';
-    ctx.fillText(`📍 ${carInfo.plate}`, 40, cardY + 50);
+      // 车辆名称（在Logo右侧）
+      ctx.fillStyle = 'white';
+      ctx.font = '16px sans-serif';
+      ctx.textAlign = 'left';
+      ctx.fillText(carInfo.name, 80, cardY + 28);
+
+      // 车牌号
+      ctx.font = '12px sans-serif';
+      ctx.fillText(`📍 ${carInfo.plate}`, 80, cardY + 50);
+    } else {
+      // 没有Logo时使用emoji
+      ctx.fillStyle = 'white';
+      ctx.font = '16px sans-serif';
+      ctx.textAlign = 'left';
+      ctx.fillText(`🚗 ${carInfo.name}`, 40, cardY + 28);
+
+      ctx.font = '12px sans-serif';
+      ctx.fillText(`📍 ${carInfo.plate}`, 40, cardY + 50);
+    }
 
     // 时间
     const time = util.formatTime(new Date(location.timestamp || Date.now()));
