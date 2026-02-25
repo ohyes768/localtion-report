@@ -36,43 +36,13 @@ class MapManager {
    * @returns {Object} 标记配置
    */
   createMarker(location, carInfo) {
-    const marker = {
-      id: parseInt(carInfo.id.replace('car', '')),
-      longitude: location.longitude,
-      latitude: location.latitude,
-      iconPath: carInfo.markerIcon || '/assets/images/markers/default_marker.png',
-      width: 40,
-      height: 40,
-      rotate: 0,
-      alpha: 1,
-      callout: {
-        content: `${carInfo.name}\n${carInfo.plate}`,
-        color: '#333333',
-        fontSize: 14,
-        borderRadius: 8,
-        bgColor: '#ffffff',
-        padding: 10,
-        display: 'ALWAYS',
-        textAlign: 'center',
-        boxShadow: '0 2rpx 8rpx rgba(0,0,0,0.1)'
-      }
-    };
-
-    // 如果有自定义标记颜色，使用自定义标记
-    if (carInfo.color) {
-      marker.customCallout = {
-        display: 'ALWAYS',
-        anchorY: 0,
-        anchorX: 0,
-        content: this._createCustomMarkerContent(carInfo)
-      };
-    }
-
-    return marker;
+    // 地图中心的自定义标记（cover-view）已显示在 map.wxml 中
+    // 这里返回空的 markers 配置，或者可以添加其他标记
+    return [];
   }
 
   /**
-   * 创建自定义标记内容
+   * 创建自定义标记内容（已弃用，改用预制的标记图标）
    */
   _createCustomMarkerContent(carInfo) {
     return `
@@ -120,8 +90,9 @@ class MapManager {
       this.initMap();
     }
 
-    const marker = this.createMarker(location, carInfo);
-    this.mapData.markers = [marker];
+    // 地图中心的自定义标记已在 wxml 中显示
+    // 这里不需要添加 markers 数组中的标记
+    this.mapData.markers = [];
 
     return this.mapData;
   }

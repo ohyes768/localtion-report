@@ -181,3 +181,41 @@
   font-weight: bold;
   margin-top: 4rpx;
 }
+
+/* 地图上的车辆标记（使用cover-view） */
+.vehicle-marker {
+  position: absolute;
+  width: 160rpx;
+  height: 160rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+
+.marker-glow {
+  position: absolute;
+  width: 150rpx;
+  height: 150rpx;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.3) 0%, rgba(255, 255, 255, 0) 70%);
+}
+
+.marker-circle {
+  position: relative;
+  width: 80rpx;
+  height: 80rpx;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 4rpx solid white;
+  box-shadow: 0 4rpx 12rpx rgba(0, 0, 0, 0.3);
+  z-index: 10;
+}
+
+.marker-circle .marker-logo {
+  width: 40rpx;
+  height: 40rpx;
+}
+

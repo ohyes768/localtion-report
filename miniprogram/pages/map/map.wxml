@@ -26,7 +26,15 @@
       enable-scroll="{{mapData.enableScroll}}"
       bindregionchange="onMapRegionChange"
       bindmarkertap="onMarkerTap"
-    />
+    >
+      <!-- 使用 cover-view 在地图上显示自定义标记 -->
+      <cover-view class="vehicle-marker" style="top: 50%; left: 50%; transform: translate(-50%, -50%);">
+        <cover-view class="marker-glow"></cover-view>
+        <cover-view class="marker-circle" style="background-color: {{currentVehicle.color}};">
+          <cover-image class="marker-logo" src="{{currentVehicle.logo}}" />
+        </cover-view>
+      </cover-view>
+    </map>
   </view>
 
   <!-- 位置信息卡片 -->
