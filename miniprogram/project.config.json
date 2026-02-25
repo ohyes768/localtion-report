@@ -22,9 +22,31 @@
     "lazyCodeLoading": false,
     "useMultiFrameRuntime": true,
     "useApiHook": true,
-    "useApiHostProcess": true
+    "useApiHostProcess": true,
+    "compileWorklet": false,
+    "packNpmManually": false,
+    "packNpmRelationList": [],
+    "minifyWXSS": true,
+    "minifyWXML": true,
+    "localPlugins": false,
+    "disableUseStrict": false,
+    "useCompilerPlugins": false,
+    "condition": false,
+    "swc": false,
+    "disableSWC": true,
+    "babelSetting": {
+      "ignore": [],
+      "disablePlugins": [],
+      "outputPath": ""
+    }
   },
   "compileType": "miniprogram",
   "libVersion": "3.5.5",
-  "condition": {}
+  "condition": {},
+  "simulatorPluginLibVersion": {},
+  "packOptions": {
+    "ignore": [],
+    "include": []
+  },
+  "editorSetting": {}
 }

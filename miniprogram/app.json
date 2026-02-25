@@ -7,8 +7,7 @@
     "navigationBarTitleText": "车辆位置分享",
     "navigationBarBackgroundColor": "#007AFF",
     "navigationBarTextStyle": "white",
-    "backgroundColor": "#f8f9fa",
-    "backgroundTextStyle": "dark"
+    "backgroundColor": "#f8f9fa"
   },
   "permission": {
     "scope.userLocation": {
@@ -18,7 +17,5 @@
   "requiredPrivateInfos": [
     "getLocation"
   ],
-  "style": "v2",
-  "sitemapLocation": "sitemap.json",
-  "lazyCodeLoading": "requiredComponents"
+  "style": "v2"
 }

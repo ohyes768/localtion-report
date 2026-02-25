@@ -65,7 +65,7 @@ class ScreenshotManager {
         `&zoom=${mapData.scale}` +
         `&size=${this.canvasWidth}x${this.canvasHeight}` +
         `&maptype=roadmap` +
-        `&markers=color:0x${location.color || 'ff0000'}|${location.latitude},${location.longitude}` +
+        `&markers=color:0x${(location.color || 'ff0000').replace('#', '')}|${location.latitude},${location.longitude}` +
         `&key=${config.TENCENT_MAP_KEY}`;
 
       // 下载图片
@@ -89,11 +89,8 @@ class ScreenshotManager {
   _drawMarker(ctx, carInfo, centerX, centerY) {
     const color = carInfo.color || '#007AFF';
 
-    // 外圈发光
-    const gradient = ctx.createRadialGradient(centerX, centerY, 0, centerX, centerY, 45);
-    gradient.addColorStop(0, this._hexToRgba(color, 0.3));
-    gradient.addColorStop(1, this._hexToRgba(color, 0));
-    ctx.setFillStyle gradient);
+    // 外圈发光效果（简化为半透明圆）
+    ctx.setFillStyle(this._hexToRgba(color, 0.3));
     ctx.beginPath();
     ctx.arc(centerX, centerY, 45, 0, 2 * Math.PI);
     ctx.fill();
