@@ -1,0 +1,26 @@
+# 小程序敏感配置
+miniprogram/project.config.json
+miniprogram/project.private.config.json
+
+# 编辑器配置
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# 系统文件
+.DS_Store
+Thumbs.db
+
+# 日志
+logs/
+*.log
+npm-debug.log*
+
+# 依赖
+node_modules/
+
+# 构建产物
+dist/
+build/
