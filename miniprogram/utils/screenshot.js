@@ -22,8 +22,19 @@ class ScreenshotManager {
     try {
       util.showLoading('生成中...');
 
+      console.log('开始生成截图...', {
+        mapData,
+        carInfo: carInfo.name,
+        location: {
+          lat: location.latitude,
+          lng: location.longitude,
+          address: location.address
+        }
+      });
+
       // 1. 获取地图静态图
       const mapImagePath = await this._getMapStaticImage(mapData, location);
+      console.log('地图静态图下载成功:', mapImagePath);
 
       // 2. 绘制到 Canvas
       const ctx = wx.createCanvasContext('screenshotCanvas', this);
@@ -34,15 +45,19 @@ class ScreenshotManager {
 
       // 绘制地图底图
       ctx.drawImage(mapImagePath, 0, 0, this.canvasWidth, this.canvasHeight);
+      console.log('地图底图绘制完成');
 
       // 绘制车辆标记
       this._drawMarker(ctx, carInfo, this.canvasWidth / 2, this.canvasHeight / 2);
+      console.log('车辆标记绘制完成');
 
       // 绘制信息卡片
       this._drawInfoCard(ctx, carInfo, location);
+      console.log('信息卡片绘制完成');
 
       // 3. 导出图片
       const tempFilePath = await this._exportImage(ctx);
+      console.log('截图导出成功:', tempFilePath);
 
       wx.hideLoading();
       return tempFilePath;
@@ -50,6 +65,7 @@ class ScreenshotManager {
     } catch (error) {
       wx.hideLoading();
       console.error('截图生成失败:', error);
+      util.showToast('截图失败: ' + error.message);
       throw error;
     }
   }
@@ -65,20 +81,27 @@ class ScreenshotManager {
         `&zoom=${mapData.scale}` +
         `&size=${this.canvasWidth}x${this.canvasHeight}` +
         `&maptype=roadmap` +
-        `&markers=color:0x${(location.color || 'ff0000').replace('#', '')}|${location.latitude},${location.longitude}` +
+        `&markers=color:0xff0000|${location.latitude},${location.longitude}` +
         `&key=${config.TENCENT_MAP_KEY}`;
+
+      console.log('静态图URL:', url);
 
       // 下载图片
       wx.downloadFile({
         url: url,
         success: (res) => {
+          console.log('图片下载响应:', res);
           if (res.statusCode === 200) {
             resolve(res.tempFilePath);
           } else {
-            reject(new Error('地图图片下载失败'));
+            console.error('图片下载失败，状态码:', res.statusCode);
+            reject(new Error(`地图图片下载失败: ${res.statusCode}`));
           }
         },
-        fail: reject
+        fail: (err) => {
+          console.error('图片下载失败:', err);
+          reject(new Error('地图图片下载失败: ' + err.errMsg));
+        }
       });
     });
   }
@@ -167,19 +190,26 @@ class ScreenshotManager {
    */
   _exportImage(ctx) {
     return new Promise((resolve, reject) => {
-      ctx.draw(false, () => {
+      // 先执行绘制
+      ctx.draw(false);
+
+      // 延迟一段时间确保绘制完成
+      setTimeout(() => {
         wx.canvasToTempFilePath({
           canvasId: 'screenshotCanvas',
           x: 0,
           y: 0,
           width: this.canvasWidth,
           height: this.canvasHeight,
-          destWidth: this.canvasWidth,
-          destHeight: this.canvasHeight,
+          destWidth: this.canvasWidth * 2,  // 提高导出质量
+          destHeight: this.canvasHeight * 2,
           success: (res) => resolve(res.tempFilePath),
-          fail: reject
+          fail: (err) => {
+            console.error('导出图片失败:', err);
+            reject(err);
+          }
         }, this);
-      });
+      }, 500);  // 等待 500ms 确保绘制完成
     });
   }
 
