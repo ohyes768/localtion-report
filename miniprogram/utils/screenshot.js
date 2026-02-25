@@ -137,15 +137,19 @@ class ScreenshotManager {
   }
 
   /**
-   * 绘制车辆标记
+   * 绘制车辆标记（与页面样式保持一致）
    */
   _drawMarker(ctx, carInfo, centerX, centerY, logoImage) {
     const color = carInfo.color || '#007AFF';
+    const markerRadius = 40;  // 与页面上的标记大小一致（80rpx ≈ 40px）
 
     // 外圈发光效果
-    ctx.fillStyle = this._hexToRgba(color, 0.3);
+    const gradient = ctx.createRadialGradient(centerX, centerY, 0, centerX, centerY, markerRadius + 15);
+    gradient.addColorStop(0, this._hexToRgba(color, 0.4));
+    gradient.addColorStop(1, this._hexToRgba(color, 0));
+    ctx.fillStyle = gradient;
     ctx.beginPath();
-    ctx.arc(centerX, centerY, 45, 0, 2 * Math.PI);
+    ctx.arc(centerX, centerY, markerRadius + 15, 0, 2 * Math.PI);
     ctx.fill();
 
     // 阴影效果
@@ -154,49 +158,42 @@ class ScreenshotManager {
     ctx.shadowOffsetX = 0;
     ctx.shadowOffsetY = 4;
 
-    // 主标记圆圈
+    // 主标记圆圈（使用车辆颜色）
     ctx.fillStyle = color;
     ctx.beginPath();
-    ctx.arc(centerX, centerY, 30, 0, 2 * Math.PI);
+    ctx.arc(centerX, centerY, markerRadius, 0, 2 * Math.PI);
     ctx.fill();
 
     // 清除阴影
     ctx.shadowColor = 'transparent';
+    ctx.shadowBlur = 0;
+    ctx.shadowOffsetX = 0;
+    ctx.shadowOffsetY = 0;
 
     // 白色边框
-    ctx.strokeStyle = carInfo.isLight ? '#ccc' : 'white';
-    ctx.lineWidth = 4;
+    ctx.strokeStyle = carInfo.isLight ? '#ddd' : 'white';
+    ctx.lineWidth = 5;
     ctx.beginPath();
-    ctx.arc(centerX, centerY, 30, 0, 2 * Math.PI);
+    ctx.arc(centerX, centerY, markerRadius, 0, 2 * Math.PI);
     ctx.stroke();
 
     // 绘制车辆 Logo（如果有且加载成功）
     if (logoImage && logoImage.complete && logoImage.width > 0) {
-      const logoSize = 28;
+      const logoSize = 32;  // Logo 尺寸
       ctx.drawImage(
         logoImage,
         centerX - logoSize / 2,
-        centerY - logoSize / 2 - 5,
+        centerY - logoSize / 2 - 3,
         logoSize,
         logoSize
       );
-      // 车辆名称缩写（在Logo下方）
-      ctx.fillStyle = carInfo.isLight ? '#333' : 'white';
-      ctx.font = 'bold 10px sans-serif';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillText(carInfo.name.substring(0, 2), centerX, centerY + 20);
     } else {
       // Logo加载失败时使用 emoji
       ctx.fillStyle = carInfo.isLight ? '#333' : 'white';
-      ctx.font = '16px sans-serif';
+      ctx.font = '24px sans-serif';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      ctx.fillText('🚗', centerX, centerY - 6);
-
-      // 车辆名称缩写
-      ctx.font = '12px sans-serif';
-      ctx.fillText(carInfo.name.substring(0, 2), centerX, centerY + 14);
+      ctx.fillText('🚗', centerX, centerY - 3);
     }
   }
 
