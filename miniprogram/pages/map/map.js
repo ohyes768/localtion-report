@@ -4,6 +4,7 @@ const LocationManager = require('../../utils/location.js');
 const MapManager = require('../../utils/map.js');
 const ScreenshotManager = require('../../utils/screenshot.js');
 const util = require('../../utils/util.js');
+const QQMapWX = require('../../lib/qqmap-wx-jssdk/index.js');
 
 const app = getApp();
 
@@ -31,9 +32,15 @@ Page({
 
   locationManager: null,
   mapManager: null,
+  qqmap: null,
 
   onLoad(options) {
     const { carId } = options;
+
+    // 初始化腾讯地图SDK
+    this.qqmap = new QQMapWX({
+      key: app.globalData.config.mapKey
+    });
 
     // 从全局数据或参数获取车辆信息
     let vehicle = app.globalData.currentVehicle;
@@ -123,24 +130,24 @@ Page({
   },
 
   /**
-   * 逆地理编码
+   * 逆地理编码（使用SDK）
    */
   reverseGeocode(location) {
     this.setData({
       'location.addressLoading': true
     });
 
-    // 使用腾讯地图逆地理编码 API
-    wx.request({
-      url: 'https://apis.map.qq.com/ws/geocoder/v1/',
-      data: {
-        location: `${location.latitude},${location.longitude}`,
-        key: app.globalData.config.mapKey,
-        get_poi: 0
+    // 使用腾讯地图SDK
+    this.qqmap.reverseGeocode({
+      location: {
+        latitude: location.latitude,
+        longitude: location.longitude
       },
+      get_poi: 0,
       success: (res) => {
-        if (res.data.status === 0 && res.data.result) {
-          const address = res.data.result.address;
+        console.log('逆地理编码结果:', res);
+        if (res.status === 0 && res.result) {
+          const address = res.result.address;
           this.setData({
             'location.address': address
           });
@@ -148,6 +155,10 @@ Page({
           if (app.globalData.currentLocation) {
             app.globalData.currentLocation.address = address;
           }
+        } else {
+          this.setData({
+            'location.address': '地址解析失败'
+          });
         }
       },
       fail: (error) => {
