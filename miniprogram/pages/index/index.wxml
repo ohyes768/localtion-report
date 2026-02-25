@@ -1,0 +1,44 @@
+<!-- pages/index/index.wxml -->
+<view class="container">
+  <!-- 页面标题 -->
+  <view class="header">
+    <text class="title">🚗 车辆位置分享</text>
+    <text class="subtitle">选择要定位的车辆</text>
+  </view>
+
+  <!-- 车辆列表 -->
+  <view class="vehicle-list">
+    <block wx:for="{{vehicles}}" wx:key="id">
+      <view
+        class="vehicle-card"
+        bindtap="onVehicleSelect"
+        data-car-id="{{item.id}}"
+      >
+        <!-- 车辆颜色标识 -->
+        <view class="vehicle-dot" style="background-color: {{item.color}}; {{item.isLight ? 'border: 2rpx solid #ccc;' : ''}}"></view>
+
+        <!-- 车辆Logo -->
+        <image class="vehicle-logo" src="{{item.logo}}" mode="aspectFit" />
+
+        <!-- 车辆信息 -->
+        <view class="vehicle-info">
+          <text class="vehicle-name">{{item.name}}</text>
+          <text class="vehicle-plate">{{item.plate}}</text>
+        </view>
+
+        <!-- 选择箭头 -->
+        <view class="arrow-icon">
+          <text>›</text>
+        </view>
+      </view>
+    </block>
+  </view>
+
+  <!-- 底部扫码按钮 -->
+  <view class="footer">
+    <button class="scan-btn" bindtap="onScanCode">
+      <text class="scan-icon">📷</text>
+      <text>扫码选择车辆</text>
+    </button>
+  </view>
+</view>

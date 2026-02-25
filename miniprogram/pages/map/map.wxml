@@ -1,0 +1,67 @@
+<!-- pages/map/map.wxml -->
+<view class="map-page">
+  <!-- 车辆信息卡片 -->
+  <view class="vehicle-info-card">
+    <view class="vehicle-dot" style="background-color: {{currentVehicle.color}}; {{currentVehicle.isLight ? 'border: 2rpx solid #ccc;' : ''}}"></view>
+    <image class="car-logo" src="{{currentVehicle.logo}}" mode="aspectFit" />
+    <view class="car-info">
+      <text class="car-name">{{currentVehicle.name}}</text>
+      <text class="car-plate">{{currentVehicle.plate}}</text>
+    </view>
+    <view class="back-btn" bindtap="onGoBack">
+      <text>✕</text>
+    </view>
+  </view>
+
+  <!-- 地图容器 -->
+  <view class="map-container">
+    <map
+      id="vehicleMap"
+      longitude="{{mapData.longitude}}"
+      latitude="{{mapData.latitude}}"
+      scale="{{mapData.scale}}"
+      markers="{{mapData.markers}}"
+      show-location="{{mapData.showLocation}}"
+      enable-zoom="{{mapData.enableZoom}}"
+      enable-scroll="{{mapData.enableScroll}}"
+      bindregionchange="onMapRegionChange"
+      bindmarkertap="onMarkerTap"
+    />
+  </view>
+
+  <!-- 位置信息卡片 -->
+  <view class="location-info-card">
+    <view class="info-row">
+      <text class="label">📍</text>
+      <text class="value location-address">{{location.address || '获取中...'}}</text>
+    </view>
+    <view class="info-row" wx:if="{{!location.addressLoading}}">
+      <text class="label">🎯</text>
+      <text class="value">精度：{{location.accuracy}}米</text>
+    </view>
+    <view class="info-row">
+      <text class="label">🕐</text>
+      <text class="value">{{location.timeStr}}</text>
+    </view>
+    <view class="info-row" wx:if="{{location.isDefault}}">
+      <text class="label warning">⚠️</text>
+      <text class="value warning">当前为测试位置</text>
+    </view>
+  </view>
+
+  <!-- 操作按钮 -->
+  <view class="action-buttons">
+    <button class="btn btn-secondary" bindtap="onRefreshLocation" disabled="{{refreshing}}">
+      <text>{{refreshing ? '定位中...' : '🔄 刷新定位'}}</text>
+    </button>
+    <button class="btn btn-primary" bindtap="onShareLocation">
+      <text>📸 截图分享</text>
+    </button>
+  </view>
+
+  <!-- 隐藏的 Canvas 用于截图 -->
+  <canvas
+    canvas-id="screenshotCanvas"
+    style="position: fixed; left: -9999rpx; top: -9999rpx; width: 600rpx; height: 400rpx;"
+  />
+</view>
