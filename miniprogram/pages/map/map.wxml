@@ -61,7 +61,8 @@
 
   <!-- 隐藏的 Canvas 用于截图 -->
   <canvas
-    canvas-id="screenshotCanvas"
-    style="position: fixed; left: -9999rpx; top: -9999rpx; width: 600rpx; height: 400rpx;"
+    type="2d"
+    id="screenshotCanvas"
+    style="position: fixed; left: -9999px; top: -9999px; width: 600px; height: 400px;"
   />
 </view>

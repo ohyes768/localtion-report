@@ -1,6 +1,6 @@
 /**
  * 截图管理器
- * 使用腾讯地图静态图 API + Canvas 2D 生成截图
+ * 使用 Canvas 2D 新版 API
  */
 const util = require('./util.js');
 const config = require('../config/config.js');
@@ -23,7 +23,6 @@ class ScreenshotManager {
       util.showLoading('生成中...');
 
       console.log('开始生成截图...', {
-        mapData,
         carInfo: carInfo.name,
         location: {
           lat: location.latitude,
@@ -36,27 +35,47 @@ class ScreenshotManager {
       const mapImagePath = await this._getMapStaticImage(mapData, location);
       console.log('地图静态图下载成功:', mapImagePath);
 
-      // 2. 绘制到 Canvas
-      const ctx = wx.createCanvasContext('screenshotCanvas', this);
+      // 2. 创建离屏 Canvas
+      const canvas = wx.createOffscreenCanvas({
+        type: '2d',
+        width: this.canvasWidth,
+        height: this.canvasHeight
+      });
+
+      const ctx = canvas.getContext('2d');
+
+      // 3. 绘制地图底图
+      const mapImage = canvas.createImage();
+      await new Promise((resolve, reject) => {
+        mapImage.onload = () => {
+          console.log('地图图片加载完成');
+          resolve();
+        };
+        mapImage.onerror = (err) => {
+          console.error('地图图片加载失败:', err);
+          reject(err);
+        };
+        mapImage.src = mapImagePath;
+      });
 
       // 绘制背景
-      ctx.setFillStyle('#f8f9fa');
+      ctx.fillStyle = '#f8f9fa';
       ctx.fillRect(0, 0, this.canvasWidth, this.canvasHeight);
 
       // 绘制地图底图
-      ctx.drawImage(mapImagePath, 0, 0, this.canvasWidth, this.canvasHeight);
+      ctx.drawImage(mapImage, 0, 0, this.canvasWidth, this.canvasHeight);
       console.log('地图底图绘制完成');
 
-      // 绘制车辆标记
+      // 4. 绘制车辆标记
       this._drawMarker(ctx, carInfo, this.canvasWidth / 2, this.canvasHeight / 2);
       console.log('车辆标记绘制完成');
 
-      // 绘制信息卡片
+      // 5. 绘制信息卡片
       this._drawInfoCard(ctx, carInfo, location);
       console.log('信息卡片绘制完成');
 
-      // 3. 导出图片
-      const tempFilePath = await this._exportImage(ctx);
+      // 6. 导出图片
+      const tempFilePath = await this._exportImage(canvas);
       console.log('截图导出成功:', tempFilePath);
 
       wx.hideLoading();
@@ -75,7 +94,6 @@ class ScreenshotManager {
    */
   async _getMapStaticImage(mapData, location) {
     return new Promise((resolve, reject) => {
-      // 腾讯地图静态图 API
       const url = `https://apis.map.qq.com/ws/staticmap/v2/` +
         `?center=${location.latitude},${location.longitude}` +
         `&zoom=${mapData.scale}` +
@@ -86,7 +104,6 @@ class ScreenshotManager {
 
       console.log('静态图URL:', url);
 
-      // 下载图片
       wx.downloadFile({
         url: url,
         success: (res) => {
@@ -94,7 +111,6 @@ class ScreenshotManager {
           if (res.statusCode === 200) {
             resolve(res.tempFilePath);
           } else {
-            console.error('图片下载失败，状态码:', res.statusCode);
             reject(new Error(`地图图片下载失败: ${res.statusCode}`));
           }
         },
@@ -112,40 +128,43 @@ class ScreenshotManager {
   _drawMarker(ctx, carInfo, centerX, centerY) {
     const color = carInfo.color || '#007AFF';
 
-    // 外圈发光效果（简化为半透明圆）
-    ctx.setFillStyle(this._hexToRgba(color, 0.3));
+    // 外圈发光效果
+    ctx.fillStyle = this._hexToRgba(color, 0.3);
     ctx.beginPath();
     ctx.arc(centerX, centerY, 45, 0, 2 * Math.PI);
     ctx.fill();
 
     // 阴影效果
-    ctx.setShadow(0, 4, 12, 'rgba(0, 0, 0, 0.3)');
+    ctx.shadowColor = 'rgba(0, 0, 0, 0.3)';
+    ctx.shadowBlur = 12;
+    ctx.shadowOffsetX = 0;
+    ctx.shadowOffsetY = 4;
 
     // 主标记圆圈
-    ctx.setFillStyle(color);
+    ctx.fillStyle = color;
     ctx.beginPath();
     ctx.arc(centerX, centerY, 30, 0, 2 * Math.PI);
     ctx.fill();
 
     // 清除阴影
-    ctx.setShadow(0, 0, 0, 'transparent');
+    ctx.shadowColor = 'transparent';
 
     // 白色边框
-    ctx.setStrokeStyle(carInfo.isLight ? '#ccc' : 'white');
-    ctx.setLineWidth(4);
+    ctx.strokeStyle = carInfo.isLight ? '#ccc' : 'white';
+    ctx.lineWidth = 4;
     ctx.beginPath();
     ctx.arc(centerX, centerY, 30, 0, 2 * Math.PI);
     ctx.stroke();
 
     // 绘制车辆标识（文字）
-    ctx.setFillStyle(carInfo.isLight ? '#333' : 'white');
-    ctx.setFontSize(16);
-    ctx.setTextAlign('center');
-    ctx.setTextBaseline('middle');
+    ctx.fillStyle = carInfo.isLight ? '#333' : 'white';
+    ctx.font = '16px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
     ctx.fillText('🚗', centerX, centerY - 6);
 
     // 车辆名称缩写
-    ctx.setFontSize(12);
+    ctx.font = '12px sans-serif';
     ctx.fillText(carInfo.name.substring(0, 2), centerX, centerY + 14);
   }
 
@@ -157,24 +176,24 @@ class ScreenshotManager {
     const cardHeight = 70;
 
     // 背景
-    ctx.setFillStyle('rgba(0, 0, 0, 0.7)');
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
     ctx.fillRect(20, cardY, this.canvasWidth - 40, cardHeight);
 
     // 车辆图标和名称
-    ctx.setFillStyle('white');
-    ctx.setFontSize(18);
-    ctx.setTextAlign('left');
+    ctx.fillStyle = 'white';
+    ctx.font = '18px sans-serif';
+    ctx.textAlign = 'left';
     ctx.fillText(`🚗 ${carInfo.name}`, 40, cardY + 25);
 
     // 车牌号
-    ctx.setFontSize(14);
+    ctx.font = '14px sans-serif';
     ctx.fillText(`📍 ${carInfo.plate}`, 40, cardY + 50);
 
     // 时间
     const time = util.formatTime(new Date(location.timestamp || Date.now()));
-    ctx.setTextAlign('right');
-    ctx.setFontSize(12);
-    ctx.setFillStyle('rgba(255, 255, 255, 0.8)');
+    ctx.textAlign = 'right';
+    ctx.font = '12px sans-serif';
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
     ctx.fillText(`🕒 ${time}`, this.canvasWidth - 40, cardY + 25);
 
     // 地址（截断过长的地址）
@@ -188,28 +207,37 @@ class ScreenshotManager {
   /**
    * 导出图片
    */
-  _exportImage(ctx) {
+  _exportImage(canvas) {
     return new Promise((resolve, reject) => {
-      // 先执行绘制
-      ctx.draw(false);
+      try {
+        // 使用新版 API 直接导出
+        const dataURL = canvas.toDataURL();
+        console.log('Canvas toDataURL 完成');
 
-      // 延迟一段时间确保绘制完成
-      setTimeout(() => {
-        wx.canvasToTempFilePath({
-          canvasId: 'screenshotCanvas',
-          x: 0,
-          y: 0,
-          width: this.canvasWidth,
-          height: this.canvasHeight,
-          destWidth: this.canvasWidth * 2,  // 提高导出质量
-          destHeight: this.canvasHeight * 2,
-          success: (res) => resolve(res.tempFilePath),
+        // 将 base64 转为临时文件
+        const filePath = `${wx.env.USER_DATA_PATH}/screenshot_${Date.now()}.png`;
+
+        const fs = wx.getFileSystemManager();
+        const base64 = dataURL.replace(/^data:image\/\w+;base64,/, '');
+        const buffer = wx.base64ToArrayBuffer(base64);
+
+        fs.writeFile({
+          filePath: filePath,
+          data: buffer,
+          encoding: 'binary',
+          success: () => {
+            console.log('图片保存成功:', filePath);
+            resolve(filePath);
+          },
           fail: (err) => {
-            console.error('导出图片失败:', err);
+            console.error('图片保存失败:', err);
             reject(err);
           }
-        }, this);
-      }, 500);  // 等待 500ms 确保绘制完成
+        });
+      } catch (error) {
+        console.error('导出图片失败:', error);
+        reject(error);
+      }
     });
   }
 
